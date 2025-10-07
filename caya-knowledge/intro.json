@@ -1,0 +1,14 @@
+[
+  {
+    "id": "mission",
+    "title": "Cardbey Mission & Vision",
+    "tags": ["intro", "vision", "about"],
+    "content": "Cardbey empowers people to own AI-powered businesses globally through AI Stores, SmartDisplays, and CAI Credits — connecting physical and digital commerce in a fair and intelligent way."
+  },
+  {
+    "id": "process",
+    "title": "Business Development Flow",
+    "tags": ["process", "onboarding", "stores"],
+    "content": "The Cardbey business development process begins with helping anyone to create online business within minutes and onboarding local SMEs, converting their physical menus or price lists into digital AI Stores using OCR + AI, and connecting them to marketing dashboards, SmartDisplays, and CAI Credit rewards."
+  }
+]

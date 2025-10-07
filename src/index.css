@@ -1,0 +1,115 @@
+/* ------- Base / layout ------- */
+:root{
+  --bg-0:#0d1117; --bg-1:#0f1b37; --bg-2:#0b1327;
+  --text-0:#e5edf7; --text-1:#cbd5e1; --muted:#94a3b8;
+  --ring:rgba(255,255,255,.08);
+  --card:rgba(255,255,255,.05); --card-strong:rgba(255,255,255,.07);
+  --emerald:#86efac; --indigo:#6366f1;
+}
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{margin:0;background:var(--bg-0);color:var(--text-1);font:16px/1.55 system-ui,Segoe UI,Roboto,sans-serif}
+
+/* ---------- Background stacking ---------- */
+.iv-wrap{position:relative;z-index:2}            /* content on top */
+.iv-bg{position:fixed;inset:0;pointer-events:none}
+.iv-bg-gradient{
+  position:absolute;inset:0;z-index:0;           /* gradient UNDER mesh */
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(54,83,164,.20), transparent 60%),
+    radial-gradient(1200px 600px at 100% 10%, rgba(33,61,118,.20), transparent 60%),
+    /* opaque linear gradient must be below mesh */
+    linear-gradient(180deg,#0d1117,#0f1b37 55%,#0b1327);
+}
+/* tiny check badge in the first pill (like the screenshot) */
+.iv-check{display:inline-block;width:14px;height:14px;margin-left:8px;border-radius:3px;
+  background:linear-gradient(180deg,#34d399,#059669);box-shadow:0 0 0 1px rgba(0,0,0,.25) inset}
+.iv-par{margin:8px 0 0;color:var(--text-1)}
+
+/* gradient CTA used in "Take Action" card */
+.iv-btn-gradient{
+  color:#fff;border:1px solid transparent;
+  background:linear-gradient(90deg,#0ea5e9,#22d3ee);
+  border-radius:14px;padding:10px 14px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.iv-btn-gradient:hover{filter:brightness(1.05)}
+
+.iv-bg-canvas{position:absolute;inset:0;z-index:1;opacity:.6} /* mesh above gradient */
+
+/* ---------- Containers ---------- */
+.iv-container{width:min(1120px,100%);margin:0 auto;padding:0 24px}
+
+/* ---------- A11y skip ---------- */
+.iv-skip{position:absolute;left:-9999px;top:auto}
+.iv-skip:focus{left:16px;top:16px;background:#000;color:#fff;padding:8px 12px;border-radius:8px;z-index:9999}
+
+/* ---------- Header ---------- */
+.iv-header{position:sticky;top:0;backdrop-filter:blur(6px);background:rgba(0,0,0,.25);border-bottom:1px solid var(--ring)}
+.iv-header-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+.iv-brand{display:flex;align-items:center;gap:10px;color:var(--text-0);text-decoration:none}
+.iv-logo{width:24px;height:24px;border-radius:8px;background:linear-gradient(135deg,var(--emerald),var(--indigo))}
+.iv-brand-name{font-weight:600;letter-spacing:.2px}
+.iv-badge{font-size:12px;color:#a7f3d0;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);padding:2px 8px;border-radius:999px}
+.iv-nav{display:flex;align-items:center;gap:8px}
+.iv-menu{display:none;background:transparent;border:1px solid var(--ring);border-radius:10px;padding:6px}
+.iv-menu span{display:block;height:2px;width:18px;background:#cbd5e1;margin:3px 0}
+@media (max-width:720px){.iv-menu{display:block}}
+.iv-mobile-nav{display:grid;gap:8px;padding:12px 24px 16px}
+
+/* ---------- Hero ---------- */
+.iv-hero{position:relative;display:block;padding:96px 0 32px}
+.iv-hero-left{max-width:820px}
+.iv-h1{margin:0;color:#86efac;font-weight:800;line-height:1.08;font-size:clamp(28px,4vw,56px)}
+.iv-sub{margin-top:16px;color:var(--text-1);font-size:clamp(16px,2vw,20px)}
+.iv-cta-row{margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.iv-hero { min-height: 72vh; display: flex; align-items: center; }
+.iv-hero-left { max-width: 900px; }
+
+/* Defensive: make sure CTAs don’t float/center themselves */
+.iv-btn{position:static !important;transform:none !important;margin:0 !important}
+
+/* ---------- Buttons ---------- */
+.iv-btn{display:inline-flex;align-items:center;justify-content:center;font-weight:600;border-radius:14px;padding:10px 14px;text-decoration:none;border:1px solid transparent;transition:filter .15s ease}
+.iv-btn-primary{background:var(--emerald);color:#07210f}
+.iv-btn-primary:hover{filter:brightness(1.05)}
+.iv-btn-accent{background:rgba(99,102,241,.9);color:#fff}
+.iv-btn-accent:hover{filter:brightness(1.05)}
+.iv-btn-ghost{color:var(--text-0);border-color:var(--ring);background:rgba(255,255,255,.02)}
+.iv-btn-ghost:hover{background:rgba(255,255,255,.06)}
+@media (max-width:560px){.iv-cta-row{flex-direction:column;align-items:flex-start}}
+
+/* ---------- Sections / grids ---------- */
+.iv-section{padding:28px 0}
+.iv-grid{display:grid;gap:16px}
+.iv-grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.iv-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.iv-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:1024px){.iv-grid-4{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:720px){.iv-grid-4,.iv-grid-3,.iv-grid-2{grid-template-columns:1fr}}
+
+.iv-pill{background:var(--card);border:1px solid var(--ring);border-radius:18px;padding:14px}
+.iv-dot{width:10px;height:10px;border-radius:50%;background:#34d399;display:inline-block;margin-right:8px;vertical-align:middle}
+.iv-pill-title{color:var(--text-0);font-weight:600}
+.iv-pill-sub{color:var(--muted);font-size:12px;margin-top:2px}
+
+.iv-divider{height:1px;background:var(--ring)}
+
+.iv-card{background:var(--card);border:1px solid var(--ring);border-radius:22px;padding:18px}
+.iv-danger{box-shadow:0 0 0 1px rgba(244,63,94,.18) inset}
+.iv-success{box-shadow:0 0 0 1px rgba(16,185,129,.18) inset}
+.iv-h2{color:var(--text-0);font-size:22px;margin:0}
+.iv-h3{color:var(--text-0);font-size:18px;margin:0 0 8px}
+.iv-list{margin:0;padding-left:18px;color:var(--text-1)}
+.iv-k{color:var(--muted);font-size:12px}
+.iv-v{color:var(--text-0);font-weight:500;margin-top:4px}
+.iv-mt{margin-top:12px}
+.iv-details summary{cursor:pointer;font-weight:600;color:var(--text-0);list-style:none}
+.iv-details summary::-webkit-details-marker{display:none}
+.iv-faq-a{margin-top:8px;color:var(--text-1)}
+
+.iv-grad{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))}
+.iv-contact-desc{color:var(--text-1);margin:8px 0 14px}
+
+/* ---------- Footer ---------- */
+.iv-footer{border-top:1px solid var(--ring);color:#9aa7b5;padding:28px 0;margin-top:36px;text-align:center}

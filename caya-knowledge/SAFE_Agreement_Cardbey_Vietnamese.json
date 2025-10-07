@@ -1,0 +1,51 @@
+{
+  "id": "safe_agreement_cardbey_vi",
+  "title": "Thỏa Thuận SAFE (Simple Agreement for Future Equity) - Bản Tiếng Việt",
+  "sections": [
+    {
+      "id": "intro",
+      "title": "Giới thiệu",
+      "content": "Phiên bản thân thiện với Nhà sáng lập – Dành cho Australia\n\nCông ty: Cardbey – SIGNSCATER PTY LTD\nABN: 50 685 406 697 / ACN: 685 406 697\nĐăng ký tại Victoria, Úc."
+    },
+    {
+      "id": "parties",
+      "title": "1. Các Bên",
+      "content": "Ngày: [Điền ngày ký]\nCông ty: SIGNSCATER PTY LTD (Cardbey), ABN/ACN 685 406 697, đăng ký tại Victoria, Úc.\nNhà đầu tư: ..............................................................\nĐịa chỉ nhà đầu tư: .............................................................."
+    },
+    {
+      "id": "investment",
+      "title": "2. Khoản Đầu Tư",
+      "content": "Nhà đầu tư đồng ý đầu tư số tiền AUD $........................................... vào Công ty để đổi lấy quyền nhận cổ phần trong vốn điều lệ của Công ty, theo các điều khoản dưới đây.\n\nThỏa thuận SAFE này nằm trong tổng kế hoạch huy động vốn tối đa AUD $3,000,000 trong vòng hạt giống hiện tại."
+    },
+    {
+      "id": "terms",
+      "title": "3. Các Điều Khoản Chính",
+      "content": "Giới hạn định giá (Valuation Cap): AUD $18,000,000 (trước đầu tư)\nTỷ lệ chiết khấu (Discount Rate): 15%\n\nCác sự kiện chuyển đổi (Conversion Triggers):\n- Tài trợ vốn cổ phần (Equity Financing): Tự động chuyển đổi thành cổ phần tại vòng gọi vốn cổ phần tiếp theo (với số vốn tối thiểu AUD $1,000,000) theo giá thấp hơn giữa:\n   • Giá cổ phần dựa trên Giới hạn định giá, HOẶC\n   • Giá cổ phần sau khi áp dụng tỷ lệ chiết khấu.\n\n- Sự kiện thanh khoản (IPO hoặc Bán công ty): Tự động chuyển đổi ngay trước sự kiện sang loại cổ phần ưu tiên cao nhất đang lưu hành.\n- Sự kiện giải thể: Quyền hoàn lại khoản đầu tư trước khi phân phối cho cổ đông.\n- Điều khoản MFN (tùy chọn): Chỉ áp dụng khi hai bên cùng đồng ý."
+    },
+    {
+      "id": "definitions",
+      "title": "4. Định Nghĩa",
+      "content": "Tài trợ vốn cổ phần đủ điều kiện (Qualified Equity Financing): Một hoặc nhiều giao dịch có mục đích chính là huy động vốn, với tổng số tiền huy động tối thiểu AUD $1,000,000 (không bao gồm các SAFE khác).\n\nSự kiện thanh khoản (Liquidity Event): Bao gồm việc thay đổi quyền kiểm soát, bán phần lớn tài sản, hoặc IPO."
+    },
+    {
+      "id": "no_interest",
+      "title": "5. Không Lãi Suất / Không Ngày Đáo Hạn",
+      "content": "Thỏa thuận SAFE này không tính lãi và không có ngày đáo hạn."
+    },
+    {
+      "id": "representations",
+      "title": "6. Cam Kết & Đại Diện",
+      "content": "Công ty: Được tổ chức hợp pháp, đang hoạt động đúng quy định tại khu vực đăng ký và được ủy quyền phát hành thỏa thuận SAFE này.\n\nNhà đầu tư: Có đầy đủ năng lực pháp lý và đầu tư cho mục đích cá nhân, hiểu rõ rủi ro của khoản đầu tư này."
+    },
+    {
+      "id": "misc",
+      "title": "7. Điều Khoản Chung",
+      "content": "Luật điều chỉnh: Tiểu bang Victoria, Úc\n\nHạn chế chuyển nhượng: Không được chuyển nhượng nếu không có sự đồng ý bằng văn bản của Công ty, trừ trường hợp cho các công ty liên kết.\n\nToàn bộ thỏa thuận: Thỏa thuận SAFE này là toàn bộ cam kết giữa các bên, thay thế mọi thỏa thuận trước đây."
+    },
+    {
+      "id": "signatures",
+      "title": "8. Ký Tên",
+      "content": "Đại diện ký thay mặt Công ty:\n\nTên: Danh Pham\nChức vụ: CEO\n\nChữ ký: ______________________\nNgày: ______________________\n\n---\n\nĐại diện Nhà đầu tư ký:\n\nTên: ______________________\n\nChữ ký: ______________________\nNgày: ______________________"
+    }
+  ]
+}

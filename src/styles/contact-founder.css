@@ -1,0 +1,53 @@
+/* Overlay */
+.cfm-overlay{
+  position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
+  background: rgba(0,10,25,.55); backdrop-filter: blur(4px); z-index: 60;
+}
+
+/* Modal card */
+.cfm-modal{
+  position: relative; width: min(560px, 92vw);
+  background: linear-gradient(180deg, #0e1b2e 0%, #0a1a2a 100%);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px; color: #e6eefc;
+  box-shadow: 0 24px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+  padding: 20px;
+}
+.cfm-close{
+  position:absolute; top:8px; right:10px; font-size:20px; line-height:1;
+  background: transparent; color:#a7b4c6; border:0; cursor:pointer;
+}
+.cfm-title{ margin: 4px 0 12px; font-size: 1.2rem; }
+
+/* Quick links */
+.cfm-quick{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px; }
+.cfm-chip{
+  display:flex; flex-direction:column; justify-content:center; align-items:flex-start;
+  padding:10px 12px; min-width:160px;
+  border-radius:12px; text-decoration:none; color:#e6eefc;
+  background: rgba(20,34,64,.55); border:1px solid rgba(255,255,255,.14);
+}
+.cfm-chip:hover{ border-color:#3b82f6; }
+.cfm-sub{ font-size:.78rem; opacity:.85; }
+
+/* Form */
+.cfm-form{ display:flex; flex-direction:column; gap:12px; }
+.cfm-row{ display:flex; flex-direction:column; gap:6px; }
+.cfm-row label{ font-size:.85rem; color:#a7b4c6; }
+.cfm-row input, .cfm-row textarea{
+  width:100%; padding:10px 12px; color:#e6eefc; background:#0b1a2a;
+  border:1px solid rgba(255,255,255,.14); border-radius:10px;
+}
+.cfm-row input:focus, .cfm-row textarea:focus{
+  outline:2px solid #60a5fa; outline-offset:1px; border-color:transparent;
+}
+.cfm-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:4px; }
+.cfm-btn{
+  padding:10px 16px; border-radius:999px; background: linear-gradient(135deg,#725bff,#5a8bff);
+  color:#fff; border:0; cursor:pointer;
+}
+.cfm-btn[disabled]{ opacity:.6; cursor:not-allowed; }
+.cfm-btn--ghost{ background: transparent; border:1px solid rgba(255,255,255,.18); color:#e6eefc; }
+.cfm-alert{ padding:8px 10px; border-radius:8px; font-size:.9rem; }
+.cfm-alert--ok{ background:#063a2d; color:#a7f3d0; border:1px solid #10b98133; }
+.cfm-alert--error{ background:#3b1d1d; color:#fecaca; border:1px solid #ef444433; }
