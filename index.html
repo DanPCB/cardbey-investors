@@ -41,13 +41,32 @@
       window.addEventListener('orientationchange', setVH, { passive: true });
     </script>
   </head>
-  <body>
-    <div style="position:fixed;top:8px;right:8px;z-index:1000;display:flex;gap:6px">
-      <button class="lang-chip" onclick="window.CayaChat?.setLang('vi')" aria-label="Switch to Vietnamese">VI</button>
-      <button class="lang-chip" onclick="window.CayaChat?.setLang('en')" aria-label="Switch to English">EN</button>
-    </div>
+  <script>
+  (function removeFloatingLangPills() {
+    function isTopRight(el) {
+      const s = getComputedStyle(el);
+      const right = parseInt(s.right || '999', 10);
+      const top   = parseInt(s.top   || '999', 10);
+      return (['fixed','absolute'].includes(s.position) && right <= 64 && top <= 64);
+    }
 
-    <div id="root" class="min-h-screen-safe"></div>
+    function kill() {
+      document.querySelectorAll('button, a, span, div').forEach((el) => {
+        const txt = (el.textContent || '').trim();
+        if ((txt === 'VI' || txt === 'EN') && isTopRight(el)) {
+          el.remove(); // or: el.style.display = 'none';
+        }
+      });
+    }
+
+    // run now and also watch for re-renders
+    kill();
+    new MutationObserver(kill).observe(document.body, { childList: true, subtree: true });
+  })();
+</script>
+
+  <body>
+        <div id="root" class="min-h-screen-safe"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

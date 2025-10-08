@@ -75,6 +75,15 @@ body{
   font-size:12px;color:#a7f3d0;background:rgba(16,185,129,.12);
   border:1px solid rgba(16,185,129,.25);padding:2px 8px;border-radius:999px
 }
+/* Hide only floating language buttons at top-right */
+.lang-switch,
+.lang-toggle,
+.header-floating-lang {
+  position: absolute !important;
+  top: 0;
+  right: 0;
+  display: none !important;
+}
 
 /* Nav row */
 .iv-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
