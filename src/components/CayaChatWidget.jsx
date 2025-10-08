@@ -53,7 +53,7 @@ export default function CayaChatWidget({
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
 const API_KEY  = import.meta.env.VITE_CAYA_API_KEY || "";
 const url = (path) => `${API_BASE}${path}`;
-const streamUrl    = url("/caya/ask/stream");
+const streamUrl = `${API_BASE}/caya/ask/stream`;
 const nonStreamUrl = url("/caya/ask");
   // Sound preference (typing SFX + TTS)
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -431,38 +431,66 @@ async function sendMessage(e, overrideText) {
 
     // --- 2) Fallback to non-streaming route ---
     // --- 2) Fallback to non-streaming route ---
-const res = await fetch(nonStreamUrl, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    ...(API_KEY ? { "x-caya-key": API_KEY } : {}),
-  },
-  body: JSON.stringify(body),
-});
+const res = await fetch(streamUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(API_KEY ? { "x-caya-key": API_KEY } : {}),
+    },
+    body: JSON.stringify(body),
+  });
 
-const ct = (res.headers.get("content-type") || "").toLowerCase();
-let data;
-if (ct.includes("application/json")) {
-  data = await res.json();
-} else {
-  const t = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}\n${t.slice(0, 300)}`);
-  data = { reply: t };
-}
-
-
-    const reply =
-      (data?.reply ?? data?.answer ?? data?.content ?? data?.message ?? "").toString().trim() ||
-      "(no reply)";
-
-    setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: reply } : x)));
-    if (reply && reply !== "(no reply)") await speakOut(reply);
-  } catch (err) {
-    setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: `Request failed: ${err?.message || err}` } : x)));
-  } finally {
-    setLoading(false);
-    inputRef.current?.focus();
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`HTTP ${res.status} ${res.statusText}\n${t.slice(0,300)}`);
   }
+
+  // Some proxies strip content-type; treat as stream if there is a readable body
+  const reader = res.body?.getReader?.();
+  if (!reader) {
+    const t = await res.text(); // fallback: show body
+    throw new Error(`Expected stream; got:\n${t.slice(0,300)}`);
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "", streamedText = "";
+
+  const pushToken = (tok) => {
+    if (!tok) return;
+    setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: (x.content || "") + tok } : x)));
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+
+    for (const frame of frames) {
+      // handle "event: done" + "data: {...}"
+      if (frame.startsWith("event: done")) { buffer = ""; break; }
+      const line = frame.split("\n").find(l => l.startsWith("data: "));
+      if (!line) continue;
+      try {
+        const payload = JSON.parse(line.slice(6));
+        const tok = payload.token ?? payload.delta ?? payload.text ?? "";
+        if (tok) { streamedText += tok; pushToken(tok); }
+      } catch { /* ignore */ }
+    }
+  }
+
+  if (streamedText.trim()) await speakOut(streamedText.trim());
+  setLoading(false);
+  inputRef.current?.focus();
+  return;
+} catch (err) {
+  setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: `Request failed: ${err?.message || err}` } : x)));
+} finally {
+  setLoading(false);
+  inputRef.current?.focus();
+}
 }
 
 
