@@ -501,10 +501,23 @@ async function sendMessage(e, overrideText) {
   /* =========================
      Styles
      ========================= */
+    /* =========================
+     Styles (responsive-only patch)
+     ========================= */
   const css = `
   :root { --caya-accent:${accentColor}; --caya-bg:#ffffff; --caya-fg:#0f172a; }
   @media (prefers-color-scheme: dark){ :root { --caya-bg:rgba(3,8,22,0.98); --caya-fg:#e6edf7; } }
-  .caya-fab{ position:fixed; right:24px; bottom:24px; width:72px; height:72px; padding:0; border:0; background:transparent; border-radius:9999px; overflow:visible; z-index:10000; isolation:isolate; }
+
+  /* === Floating button (unchanged look, responsive sizing) === */
+  .caya-fab{
+    position:fixed;
+    right: clamp(12px, 4vw, 24px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(12px, 4vw, 24px));
+    width: clamp(56px, 14vw, 72px);
+    height: clamp(56px, 14vw, 72px);
+    padding:0; border:0; background:transparent; border-radius:9999px;
+    overflow:visible; z-index:10000; isolation:isolate;
+  }
   .caya-fab-inner{ position:relative; z-index:1; display:block; width:100%; height:100%; overflow:hidden; border-radius:9999px; border:1px solid rgba(0,0,0,.12); box-shadow:0 10px 30px rgba(0,0,0,.25); background:#fff; }
   .caya-fab-inner img{ width:100%; height:100%; object-fit:cover; display:block; }
   .caya-fab-pill{ position:absolute; right:-10px; bottom:-6px; display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:9999px; background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.22); z-index:5; pointer-events:none; }
@@ -512,45 +525,132 @@ async function sendMessage(e, overrideText) {
   .caya-fab-pill i:nth-child(2){ animation-delay:.12s } .caya-fab-pill i:nth-child(3){ animation-delay:.24s }
   @keyframes caya-bounce { 0%,80%,100%{ transform:translateY(0) } 40%{ transform:translateY(-4px) } }
 
-  .caya-panel{ position:fixed; right:20px; bottom:110px; z-index:9999; width:420px; max-width:calc(100vw - 32px); height:560px; background:var(--caya-bg); color:var(--caya-fg); border-radius:20px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35); border:1px solid rgba(0,0,0,.06); display:flex; flex-direction:column; }
+  /* === Chat panel: mobile-first safe sizing === */
+  .caya-panel{
+    position:fixed;
+    right: clamp(8px, 4vw, 20px);
+    /* keep panel above FAB; account for iPhone home indicator */
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(76px, 18vw, 88px));
+    width: min(92vw, 420px);
+    /* let height adapt, but never exceed viewport */
+    max-height: calc(80vh - env(safe-area-inset-bottom, 0px));
+    background:var(--caya-bg); color:var(--caya-fg);
+    border-radius:16px; overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+    border:1px solid rgba(0,0,0,.06);
+    display:flex; flex-direction:column;
+    z-index:9999;
+  }
 
-  .caya-head{ height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; border-bottom:1px solid rgba(0,0,0,.08); background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.70)); backdrop-filter:saturate(120%) blur(8px); }
-  @media (prefers-color-scheme: dark){ .caya-head{ background:linear-gradient(180deg, rgba(7,11,22,.85), rgba(7,11,22,.70)); border-bottom-color:rgba(255,255,255,.08) } }
-  .caya-title{ font-weight:700 }
+  /* Slightly larger on tablets / desktop */
+  @media (min-width: 768px){
+    .caya-panel{
+      width: min(420px, 36vw);
+      max-height: min(78vh, 720px);
+      border-radius:20px;
+    }
+  }
 
-  /* hide whole panel when closed */
+  /* Header */
+  .caya-head{
+    min-height: 52px;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 0 12px;
+    border-bottom:1px solid rgba(0,0,0,.08);
+    background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.70));
+    backdrop-filter:saturate(120%) blur(8px);
+  }
+  @media (prefers-color-scheme: dark){
+    .caya-head{ background:linear-gradient(180deg, rgba(7,11,22,.85), rgba(7,11,22,.70)); border-bottom-color:rgba(255,255,255,.08) }
+  }
+  .caya-title{ font-weight:700; font-size:14px; }
+
+  /* hide panel when closed */
   .caya-panel[hidden]{ display:none !important; }
 
-  .caya-quick{ display:flex; gap:10px; padding:8px 12px 0 12px; }
-  .caya-chip{ border:1px solid rgba(0,0,0,.1); background:#fff; color:#111827; border-radius:9999px; padding:6px 10px; font-size:12px; cursor:pointer; }
-  @media (prefers-color-scheme: dark){ .caya-chip{ background:#0b1220; color:#e6edf7; border-color:rgba(255,255,255,.12) } }
+  /* Quick chips row */
+  .caya-quick{ display:flex; gap:8px; padding:8px 10px 0 10px; }
+  .caya-chip{
+    border:1px solid rgba(0,0,0,.1); background:#fff; color:#111827;
+    border-radius:9999px; padding:6px 10px; font-size:12px; cursor:pointer;
+  }
+  @media (prefers-color-scheme: dark){
+    .caya-chip{ background:#0b1220; color:#e6edf7; border-color:rgba(255,255,255,.12) }
+  }
 
-  .caya-list{ flex:1; overflow:auto; padding:14px }
-  .caya-row{ display:flex; margin:10px 0 }
+  /* Scrollable messages area — this is the key to prevent overflow */
+  .caya-list{
+    flex:1;
+    overflow:auto;
+    padding:12px 12px 10px;
+    min-height: 140px; /* keeps some space even on tiny screens */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .caya-row{ display:flex; margin:8px 0 }
   .me{ justify-content:flex-end }
-  .caya-bubble{ max-width:78%; padding:12px 14px; border-radius:14px; background:#f3f4f6; color:#0f172a; box-shadow:0 6px 20px rgba(0,0,0,.06); }
+  .caya-bubble{
+    max-width: 88%;
+    padding:10px 12px; border-radius:12px;
+    background:#f3f4f6; color:#0f172a; box-shadow:0 6px 20px rgba(0,0,0,.06);
+    font-size:14px; line-height:1.45;
+    word-wrap:break-word; overflow-wrap:anywhere;
+  }
   .me .caya-bubble{ background:var(--caya-accent); color:#fff; box-shadow:0 6px 24px rgba(124,58,237,.35); }
   @media (prefers-color-scheme: dark){ .caya-bubble{ background:rgba(255,255,255,.06); color:#e6edf7; } }
 
-  .caya-emoji-row{ display:flex; gap:6px; padding:6px 12px 0 12px; overflow-x:auto; }
+  .caya-emoji-row{ display:flex; gap:6px; padding:6px 10px 0 10px; overflow-x:auto; -webkit-overflow-scrolling: touch; }
   .caya-emoji-chip{ border:1px solid rgba(0,0,0,.1); background:#fff; border-radius:9999px; padding:4px 8px; font-size:16px; cursor:pointer; flex:0 0 auto; }
   @media (prefers-color-scheme: dark){ .caya-emoji-chip{ background:#0b1220; border-color:rgba(255,255,255,.12) } }
 
-  .caya-input{ position:relative; display:flex; align-items:center; gap:10px; padding:12px; border-top:1px solid rgba(0,0,0,.08) }
-  .caya-emoji-btn{ width:44px; height:44px; border-radius:9999px; border:1px solid rgba(0,0,0,.1); background:#fff; cursor:pointer; font-size:18px; line-height:1; flex:0 0 auto; }
-  .caya-mic-btn{ width:44px; height:44px; border-radius:9999px; border:1px solid rgba(0,0,0,.1); background:#fff; cursor:pointer; font-size:18px; line-height:1; flex:0 0 auto; }
+  /* Input bar — compact on mobile */
+  .caya-input{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 10px;
+    border-top:1px solid rgba(0,0,0,.08);
+    background: rgba(0,0,0,.02);
+  }
+  .caya-emoji-btn, .caya-mic-btn{
+    width:40px; height:40px; border-radius:9999px;
+    border:1px solid rgba(0,0,0,.1); background:#fff; cursor:pointer; font-size:18px; line-height:1; flex:0 0 auto;
+  }
   .caya-mic-btn[aria-pressed="true"]{ outline:2px solid var(--caya-accent); }
-  .caya-input input{ flex:1; height:44px; border-radius:9999px; border:1px solid rgba(0,0,0,.1); padding:0 16px; outline:none; background:#fff; color:#0f172a; }
-  @media (prefers-color-scheme: dark){ .caya-input{ border-top-color:rgba(255,255,255,.08) } .caya-input input{ background:#0b1220; color:#e6edf7; border-color:rgba(255,255,255,.12) } }
-
-  .caya-send{ height:44px; padding:0 18px; border-radius:9999px; border:0; cursor:pointer; background:var(--caya-accent); color:#fff; font-weight:700; box-shadow:0 10px 30px rgba(124,58,237,.35); }
+  .caya-input input{
+    flex:1; height:40px; border-radius:9999px; border:1px solid rgba(0,0,0,.1);
+    padding:0 14px; outline:none; background:#fff; color:#0f172a; font-size:14px;
+  }
+  .caya-send{
+    height:40px; padding:0 14px; border-radius:9999px; border:0; cursor:pointer;
+    background:var(--caya-accent); color:#fff; font-weight:700; box-shadow:0 10px 30px rgba(124,58,237,.35);
+  }
   .caya-send:disabled{ opacity:.55; cursor:default; box-shadow:none }
+  @media (prefers-color-scheme: dark){
+    .caya-input{ border-top-color:rgba(255,255,255,.08) }
+    .caya-input input{ background:#0b1220; color:#e6edf7; border-color:rgba(255,255,255,.12) }
+    .caya-emoji-btn, .caya-mic-btn{ background:#0b1220; border-color:rgba(255,255,255,.12); color:#e6edf7; }
+  }
 
-  .caya-emoji-pop{ position:absolute; bottom:56px; left:12px; z-index:50; background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.18); padding:8px; display:grid; grid-template-columns: repeat(8, 28px); gap:6px; }
+  /* Emoji pop — keep within viewport on narrow screens */
+  .caya-emoji-pop{
+    position:absolute; bottom:56px; left:12px; z-index:50; background:#fff;
+    border:1px solid rgba(0,0,0,.1); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.18);
+    padding:8px; display:grid; grid-template-columns: repeat(8, 28px); gap:6px;
+  }
   @media (max-width:480px){ .caya-emoji-pop{ grid-template-columns:repeat(6, 28px); left:auto; right:12px; } }
   .caya-emoji-cell{ width:28px; height:28px; border-radius:8px; border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; }
   .caya-emoji-cell:hover{ background:rgba(0,0,0,.06) }
+
+  /* Ultra-small screens & landscape guards */
+  @media (max-width: 360px){
+    .caya-title{ font-size:13px; }
+    .caya-chip{ padding:5px 8px; font-size:11px; }
+    .caya-bubble{ font-size:13px; }
+  }
+  @media (max-height: 520px){
+    .caya-panel{ max-height: calc(72vh - env(safe-area-inset-bottom, 0px)); }
+  }
   `;
+
 
   /* =========================
      Render
