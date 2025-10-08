@@ -552,6 +552,35 @@ async function sendMessage(e, overrideText) {
   }
 
   /* Header */
+  /* In-header language toggle */
+.caya-lang{
+  display:inline-flex;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:9999px;
+  overflow:hidden;
+  background:rgba(255,255,255,.75);
+}
+@media (prefers-color-scheme: dark){
+  .caya-lang{ border-color:rgba(255,255,255,.16); background:rgba(12,16,28,.7); }
+}
+.caya-lang-btn{
+  height:28px;
+  padding:0 10px;
+  font-size:12px;
+  line-height:28px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+}
+.caya-lang-btn.on{
+  background: var(--caya-accent);
+  color:#fff;
+}
+@media (max-width: 360px){
+  .caya-lang-btn{ height:26px; line-height:26px; padding:0 8px; font-size:11px; }
+}
+
   .caya-head{
     min-height: 52px;
     display:flex; align-items:center; justify-content:space-between;
@@ -669,36 +698,51 @@ async function sendMessage(e, overrideText) {
           data-open={open ? "true" : "false"}
         >
           <div className="caya-head" style={{ position: "relative" }}>
-            <div className="caya-title">{UI.title}</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button
-                onClick={() => (listening ? stopListening() : startListening())}
-                disabled={!supportsSTT}
-                title={supportsSTT ? (listening ? UI.listening : UI.micHold) : UI.sttUnsupported}
-              >
-                {listening ? "Stop 🎙️" : "Talk 🎙️"}
-              </button>
-              <button
-  type="button"
-  aria-label="Minimize"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  <div className="caya-title">{UI.title}</div>
 
-    // Close immediately and block further clicks
-    setOpen(false);
+  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    {/* NEW: in-bubble language toggle */}
+    <div className="caya-lang" role="group" aria-label="Language">
+      <button
+        type="button"
+        className={`caya-lang-btn ${effectiveLang === "vi" ? "on" : ""}`}
+        onClick={() => document.documentElement.setAttribute("lang", "vi")}
+      >
+        VI
+      </button>
+      <button
+        type="button"
+        className={`caya-lang-btn ${effectiveLang === "en" ? "on" : ""}`}
+        onClick={() => document.documentElement.setAttribute("lang", "en")}
+      >
+        EN
+      </button>
+    </div>
 
-    // Optionally delay re-enablement to avoid race with focus/blur events
-    e.currentTarget.disabled = true;
-    setTimeout(() => {
-      e.currentTarget.disabled = false;
-    }, 500);
-  }}
-  style={{ marginLeft: 4, cursor: "pointer" }}
->
-  ×
-</button>
+    <button
+      onClick={() => (listening ? stopListening() : startListening())}
+      disabled={!supportsSTT}
+      title={supportsSTT ? (listening ? UI.listening : UI.micHold) : UI.sttUnsupported}
+    >
+      {listening ? "Stop 🎙️" : "Talk 🎙️"}
+    </button>
 
+    {/* existing close button */}
+    <button
+      type="button"
+      aria-label="Minimize"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        e.currentTarget.disabled = true;
+        setTimeout(() => { e.currentTarget.disabled = false; }, 500);
+      }}
+      style={{ marginLeft: 4, cursor: "pointer" }}
+    >
+      ×
+    </button>
+  
             </div>
           </div>
 
