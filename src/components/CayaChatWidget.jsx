@@ -53,8 +53,8 @@ export default function CayaChatWidget({
 const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
 const API_KEY  = import.meta.env.VITE_CAYA_API_KEY || "";
 const url = (path) => `${API_BASE}${path}`;
-const streamUrl = `${API_BASE}/caya/ask/stream`;
-const nonStreamUrl = url("/caya/ask");
+const streamUrl    = `${API_BASE}/caya/ask/stream`;
+const nonStreamUrl = url(`/caya/ask`);
   // Sound preference (typing SFX + TTS)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
