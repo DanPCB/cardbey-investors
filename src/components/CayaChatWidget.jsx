@@ -30,10 +30,17 @@ export default function CayaChatWidget({
   /* =========================
      Page language + external control
      ========================= */
+     const [talkOn, setTalkOn] = useState(false);
+     const [open, setOpen] = useState(true);
   const [uiLang, setUiLang] = useState(() => {
     const pageLang = (document.documentElement.getAttribute("lang") || "").toLowerCase();
     return pageLang.startsWith("vi") ? "vi" : "en";
   });
+
+  useEffect(() => {
+  if (!open && talkOn) stopTalk();
+}, [open]); // add near your other effects
+
   useEffect(() => {
     const el = document.documentElement;
     const read = () => {
@@ -52,28 +59,39 @@ export default function CayaChatWidget({
   /* =========================
      API base & helpers
      ========================= */
-  const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
-  const API_KEY = import.meta.env.VITE_CAYA_API_KEY || "";
-  const build = (p) => `${API_BASE}${p}`;
+  const RAW_API_BASE =
+  (import.meta.env.VITE_API_BASE ||
+    import.meta.env.VITE_CAYA_API ||  
+    "").trim();
 
-  // Candidate endpoints (we'll try them in this order)
-  const STREAM_PATHS = ["/api/caya/ask/stream", "/caya/ask/stream"];
-  const NONSTREAM_PATHS = ["/api/caya/ask", "/caya/ask"];
 
-  // TTS will use the same API base
-  const TTS_URL = build("/tts-openai");
+const API_BASE = (import.meta.env.VITE_CAYA_API_BASE || apiPath || "").replace(/\/$/, "");
+if (!API_BASE) console.warn("[Caya] VITE_CAYA_API_BASE is empty; set it to your backend /api/caya");
+
+
+const CAYA_KEY = (import.meta.env.VITE_CAYA_KEY || "").trim();
+
+
+const build = (p = "") => `${API_BASE}${p.startsWith("/") ? "" : "/"}${p}`;
+const ASK_URL = build("/ask");
+const ASK_STREAM_URL = build("/ask/stream");
+const STREAM_URLS = ["/api/caya/ask/stream", "/caya/ask/stream"].map(build);
+const NONSTREAM_URLS = ["/api/caya/ask", "/caya/ask"].map(build);
+const TTS_URL  = (import.meta.env.VITE_TTS_URL || "/api/tts-openai").trim();
 
   /* =========================
      Language, UI, sound, refs
      ========================= */
   const effectiveLang = useMemo(() => uiLang, [uiLang]);
-  const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
+const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
 
-  const VOICE_BY_LANG = {
-    en: import.meta.env.VITE_TTS_VOICE_EN || "alloy",
-    vi: import.meta.env.VITE_TTS_VOICE_VI || "aria",
-  };
-  const TTS_MODEL = import.meta.env.VITE_TTS_MODEL || "tts-1";
+const recognitionRef = useRef(null);   // Web Speech API
+const mediaStreamRef = useRef(null)
+const VOICE_BY_LANG = {
+  en: import.meta.env.VITE_TTS_VOICE_EN || "alloy",
+  vi: import.meta.env.VITE_TTS_VOICE_VI || "aria",
+};
+const TTS_MODEL = import.meta.env.VITE_TTS_MODEL || "gpt-4o-mini-tts";
 
   const UI = useMemo(
     () =>
@@ -132,7 +150,7 @@ export default function CayaChatWidget({
   const emojiBtnRef = useRef(null);
   const mediaRecRef = useRef(null);
   const recChunksRef = useRef([]);
-
+  
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
       return (localStorage.getItem("caya:sound") ?? "on") === "on";
@@ -173,7 +191,7 @@ export default function CayaChatWidget({
      State
      ========================= */
   const [handsFree] = useState(true);
-  const [open, setOpen] = useState(true);
+
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState(() => [{ id: "hello", role: "assistant", content: UI.hello }]);
   const [loading, setLoading] = useState(false);
@@ -250,6 +268,104 @@ export default function CayaChatWidget({
     },
     [play]
   );
+async function startTalk() {
+  // prefer browser STT if available and not forced to server
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec && STT_MODE !== "server") {
+    try {
+      const rec = new SpeechRec();
+      recognitionRef.current = rec;
+      rec.lang = sttLangCode();
+      rec.continuous = true;
+      rec.interimResults = false;
+
+      rec.onresult = (ev) => {
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          if (res.isFinal) {
+            const text = (res[0]?.transcript || "").trim();
+            if (text) sendMessage(undefined, text);
+          }
+        }
+      };
+      rec.onerror = (e) => {
+        console.warn("[STT:browser] error:", e?.error || e);
+        // fallback to server if permission/blocked
+        try { rec.stop(); } catch {}
+        recognitionRef.current = null;
+        startTalkServer();
+      };
+      rec.onend = () => {
+        // keep listening while toggled on
+        if (talkOn && recognitionRef.current) {
+          try { rec.start(); } catch {}
+        }
+      };
+
+      rec.start();
+      setTalkOn(true);
+      return;
+    } catch (e) {
+      console.warn("[STT:browser] failed; using server fallback:", e);
+    }
+  }
+
+  // fallback immediately if no browser STT
+  await startTalkServer();
+}
+
+async function startTalkServer() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStreamRef.current = stream;
+
+    const rec = new MediaRecorder(stream);
+    mediaRecRef.current = rec;
+
+    // Send rolling chunks every 2.5s
+    rec.ondataavailable = async (e) => {
+      if (!talkOn) return;
+      if (!e.data || !e.data.size) return;
+      try {
+        const text = await transcribeWithServer(e.data, { language: effectiveLangFinal });
+        if (text && text.trim()) sendMessage(undefined, text.trim());
+      } catch (err) {
+        console.warn("[STT:server] chunk failed:", err?.message || err);
+      }
+    };
+
+    rec.onstop = () => {
+      // cleanup
+      stream.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+      mediaRecRef.current = null;
+    };
+
+    rec.start(2500); // ms per chunk
+    setTalkOn(true);
+  } catch (e) {
+    console.warn("[STT] microphone start failed:", e?.message || e);
+    setTalkOn(false);
+  }
+}
+
+function stopTalk() {
+  setTalkOn(false);
+  // stop browser STT
+  try { recognitionRef.current?.stop(); } catch {}
+  recognitionRef.current = null;
+
+  // stop server STT
+  try { mediaRecRef.current?.stop(); } catch {}
+  try { mediaStreamRef.current?.getTracks()?.forEach((t) => t.stop()); } catch {}
+  mediaRecRef.current = null;
+  mediaStreamRef.current = null;
+}
+
+
+function sttLangCode() {
+  return effectiveLangFinal === "vi" ? "vi-VN" : "en-US";
+}
 
   function emojiSvgUrl(ch) {
     try {
@@ -305,152 +421,134 @@ export default function CayaChatWidget({
     }
   }
 
-  /* =========================
-     Networking
-     ========================= */
-  async function postJson(url, body) {
-    return fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(API_KEY ? { "x-caya-key": API_KEY } : {}),
-      },
-      body: JSON.stringify(body),
-    });
+  
+ /* =========================
+   Networking
+   ========================= */
+async function postJSON(url, payload) {
+  const headers = { "Content-Type": "application/json" };
+  if (CAYA_KEY) headers["x-caya-key"] = CAYA_KEY;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`POST ${url} → ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
+}
+
+
+// Optional: streaming (SSE). If unsupported, it will throw and we’ll fall back.
+async function tryStream(url, body, onToken) {
+  const headers = { "Content-Type": "application/json" };
+  if (CAYA_KEY) headers["x-caya-key"] = CAYA_KEY;
+
+  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+  if (!res.ok || !ct.includes("text/event-stream")) {
+    throw new Error(`No SSE (${res.status})`);
   }
 
-  async function tryStream(paths, body, liveId) {
-    let lastErr;
-    for (const p of paths) {
-      const url = build(p);
-      try {
-        const res = await postJson(url, body);
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(`HTTP ${res.status} ${res.statusText}: ${t.slice(0, 200)}`);
-        }
-        const reader = res.body?.getReader?.();
-        if (!reader) throw new Error("No readable stream body");
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let full = "";
 
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let streamedText = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
 
-        const pushToken = (tok) => {
-          if (!tok) return;
-          setMsgs((m) =>
-            m.map((x) => (x.id === liveId ? { ...x, content: (x.content || "") + tok } : x))
-          );
-        };
+    const chunk = dec.decode(value, { stream: true });
+    const lines = chunk.split("\n\n");
 
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const frames = buffer.split("\n\n");
-          buffer = frames.pop() ?? "";
-          for (const f of frames) {
-            if (f.startsWith("event: done")) {
-              buffer = "";
-              break;
-            }
-            const line = f.split("\n").find((l) => l.startsWith("data: "));
-            if (!line) continue;
-            try {
-              const payload = JSON.parse(line.slice(6));
-              const tok = payload.token ?? payload.delta ?? payload.text ?? "";
-              if (tok) {
-                streamedText += tok;
-                pushToken(tok);
-              }
-            } catch {}
-          }
-        }
-        if (streamedText.trim()) await speakOut(streamedText.trim());
-        return true; // success
-      } catch (e) {
-        lastErr = e;
+    for (const line of lines) {
+      if (!line || !line.startsWith("data:")) continue;
+      const raw = line.slice(5).trim();
+      if (!raw) continue;
+
+      let payload;
+      try { payload = JSON.parse(raw); } catch { continue; }
+
+      if (payload.token) {
+        full += payload.token;
+        if (typeof onToken === "function") onToken(payload.token);
       }
     }
-    if (lastErr) throw lastErr;
-    throw new Error("All stream endpoints failed");
   }
 
-  async function tryNonStream(paths, body, liveId) {
-    let lastErr;
-    for (const p of paths) {
-      const url = build(p);
-      try {
-        const res = await postJson(url, body);
-        const ct = (res.headers.get("content-type") || "").toLowerCase();
-        if (ct.includes("application/json")) {
-          const data = await res.json();
-          const reply =
-            (data.reply ?? data.answer ?? data.content ?? data.message ?? "").toString().trim() ||
-            "(no reply)";
-          setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: reply } : x)));
-          if (reply && reply !== "(no reply)") await speakOut(reply);
-          return true;
-        } else {
-          const t = await res.text();
-          if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}: ${t.slice(0, 200)}`);
-          setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: t } : x)));
-          await speakOut(t);
-          return true;
-        }
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-    if (lastErr) throw lastErr;
-    throw new Error("All non-stream endpoints failed");
-  }
+  return full; // <- return the complete streamed text
+}
 
-  async function sendMessage(e, overrideText) {
-    e?.preventDefault?.();
-    const text = (overrideText ?? input).trim();
-    if (!text || loading) return;
 
-    play("send");
+// Non-stream fallback (single JSON)
+async function askOnce(body) {
+  return postJSON(ASK_URL, body);
+}
 
-    const userMsg = { id: crypto.randomUUID(), role: "user", content: text };
-    const next = [...msgs, userMsg];
+async function sendMessage(e, overrideText) {
+  e?.preventDefault?.();
+  const text = (overrideText ?? input).trim();
+  if (!text || loading) return;
 
-    // live assistant bubble
-    const liveId = crypto.randomUUID();
-    setMsgs([...next, { id: liveId, role: "assistant", content: "" }]);
-    setInput("");
-    setLoading(true);
+  play("send");
 
-    // recent history for context
-    const history = next.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+  const userMsg = { id: crypto.randomUUID(), role: "user", content: text };
+  const prior = [...msgs, userMsg];
 
-    const body = {
-      q: text,
-      message: text,
-      audience: audienceForLang,
-      k: 4,
-      history,
-    };
+  // live assistant bubble
+  const liveId = crypto.randomUUID();
+  setMsgs([...prior, { id: liveId, role: "assistant", content: "" }]);
+  setInput("");
+  setLoading(true);
+
+  // compact history
+  const history = prior.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+
+  const body = {
+  q: text,
+  audience: audienceForLang,
+  k: 4,
+  history,
+  rag: false,          // keep training off
+  allowWeb: true       // let backend pull general web info
+};
+
 
     try {
-      // 1) stream first (tries /api/caya/ask/stream then /caya/ask/stream)
-      await tryStream(STREAM_PATHS, body, liveId);
-    } catch (streamErr) {
-      // 2) fallback to non-stream (tries /api/caya/ask then /caya/ask)
-      try {
-        await tryNonStream(NONSTREAM_PATHS, body, liveId);
-      } catch (nonStreamErr) {
-        const msg = `Request failed: ${
-          nonStreamErr?.message || streamErr?.message || nonStreamErr || streamErr
-        }`;
-        setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: msg } : x)));
-      }
-    } finally {
-      setLoading(false);
-      inputRef.current?.focus();
+    // Try streaming first
+    const finalText = await tryStream(ASK_STREAM_URL, body, (tok) => {
+      setMsgs((m) =>
+        m.map((x) => (x.id === liveId ? { ...x, content: (x.content || "") + tok } : x))
+      );
+    });
+
+    const toSpeak = (finalText || "").trim();
+    if (toSpeak) await speakOut(toSpeak);
+
+  } catch {
+    // Fallback to non-stream JSON
+    try {
+      const data = await askOnce(body);
+      const reply =
+        (data.reply ?? data.answer ?? data.content ?? data.message ?? "").toString().trim() ||
+        "(no reply)";
+      setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: reply } : x)));
+      if (reply && reply !== "(no reply)") await speakOut(reply);
+    } catch (nonStreamErr) {
+      const msg = `Request failed: ${nonStreamErr?.message || nonStreamErr}`;
+      setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: msg } : x)));
     }
+  } finally {
+
+    setLoading(false);
+    inputRef.current?.focus();
   }
+}
 
   // Server-side STT fallback (only when supportsSTT=false and STT_MODE==='server')
   async function startRecordFallback() {
@@ -682,11 +780,15 @@ export default function CayaChatWidget({
               </div>
 
               <button
-                onClick={() => { /* your STT button wiring here if needed */ }}
-                title="Talk"
-              >
-                {false ? "Stop 🎙️" : "Talk 🎙️"}
-              </button>
+  type="button"
+  className="caya-lang-btn"
+  onClick={() => (talkOn ? stopTalk() : startTalk())}
+  title={talkOn ? "Stop voice chat" : "Start voice chat"}
+  aria-pressed={talkOn ? "true" : "false"}
+>
+  {talkOn ? "Stop" : "Talk"} <span aria-hidden>🎙️</span>
+</button>
+
 
               <button
                 type="button"
@@ -879,10 +981,7 @@ export default function CayaChatWidget({
       el.selectionStart = el.selectionEnd = start + str.length;
     });
   }
-
-  async function sendMessage(e, overrideText) {
-    // defined above (kept for readability by moving helpers); do nothing here
-  }
+  
 }
 
 /* ---------------------------

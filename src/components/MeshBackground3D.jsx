@@ -76,7 +76,7 @@ export default function MeshBackground3D({
       size: 5.0,
       map: spriteTex,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.3,
       color: 0xaecbff,
       depthWrite: false,
       sizeAttenuation: true,
