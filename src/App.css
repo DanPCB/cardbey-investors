@@ -43,3 +43,12 @@
 .read-the-docs {
   color: #888;
 }
+/* TEMP: hide chat widget everywhere */
+#caya-root,
+.caya-chat,
+.CayaChatWidget,
+[data-widget="caya-chat"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
