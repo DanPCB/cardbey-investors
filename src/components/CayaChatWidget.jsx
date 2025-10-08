@@ -2,12 +2,11 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import cayaAvatar from "../assets/caya-avatar.png";
-import useVoice from "../hooks/useVoice"; // STT only
+import useVoice from "../hooks/useVoice"; // STT only (hardened)
 import { STT_MODE } from "@/lib/sttMode";
 import { transcribeWithServer } from "@/lib/voiceClient";
 import twemoji from "twemoji";
 import { useSound } from "@/lib/sound";
-import { speakOpenAI } from "@/lib/ttsClient";
 
 export default function CayaChatWidget({
   // kept for compat; UI is controlled by page lang / global setter instead
@@ -174,6 +173,7 @@ export default function CayaChatWidget({
      ========================= */
   const [handsFree] = useState(true);
   const [open, setOpen] = useState(true);
+  const [closing, setClosing] = useState(false); // prevent null-target crash
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState(() => [{ id: "hello", role: "assistant", content: UI.hello }]);
   const [loading, setLoading] = useState(false);
@@ -207,7 +207,7 @@ export default function CayaChatWidget({
 
   useEffect(() => {
     if (!enableVoice) return;
-    // hook updates lastTranscript when speaking stops
+    // voice handled below in button bindings
   }, [enableVoice]);
 
   // reset greeting if language flips (and only the greeting is present)
@@ -234,6 +234,15 @@ export default function CayaChatWidget({
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [showEmoji]);
+
+  /* =========================
+     Voice (STT) controls
+     ========================= */
+  const { supportsSTT, listening, toggleListening } = useVoice({
+    lang: effectiveLangFinal,
+    continuous: true,
+    interim: true,
+  });
 
   /* =========================
      Helpers
@@ -434,10 +443,8 @@ export default function CayaChatWidget({
     };
 
     try {
-      // 1) stream first (tries /api/caya/ask/stream then /caya/ask/stream)
       await tryStream(STREAM_PATHS, body, liveId);
     } catch (streamErr) {
-      // 2) fallback to non-stream (tries /api/caya/ask then /caya/ask)
       try {
         await tryNonStream(NONSTREAM_PATHS, body, liveId);
       } catch (nonStreamErr) {
@@ -596,6 +603,16 @@ export default function CayaChatWidget({
   .me .caya-bubble{ background:var(--caya-accent); color:#fff; box-shadow:0 6px 24px rgba(124,58,237,.35); }
   @media (prefers-color-scheme: dark){ .caya-bubble{ background:rgba(255,255,255,.06); color:#e6edf7; } }
 
+  .caya-typing{ display:inline-flex; gap:6px; padding:8px 12px; background:#f3f4f6; border-radius:12px }
+  .caya-typing .dot{ width:6px; height:6px; border-radius:50%; background:rgba(0,0,0,.4); animation:caya-dot 1s infinite }
+  .caya-typing .dot:nth-child(2){ animation-delay:.15s } 
+  .caya-typing .dot:nth-child(3){ animation-delay:.3s }
+  @keyframes caya-dot{ 0%,80%,100%{ transform:translateY(0) } 40%{ transform:translateY(-4px) } }
+  @media (prefers-color-scheme: dark){
+    .caya-typing{ background:rgba(255,255,255,.06) }
+    .caya-typing .dot{ background:rgba(255,255,255,.6) }
+  }
+
   .caya-emoji-row{ display:flex; gap:6px; padding:6px 10px 0 10px; overflow-x:auto; -webkit-overflow-scrolling: touch; }
   .caya-emoji-chip{ border:1px solid rgba(0,0,0,.1); background:#fff; border-radius:9999px; padding:4px 8px; font-size:16px; cursor:pointer; flex:0 0 auto; }
   @media (prefers-color-scheme: dark){ .caya-emoji-chip{ background:#0b1220; border-color:rgba(255,255,255,.12) } }
@@ -681,24 +698,38 @@ export default function CayaChatWidget({
                 </button>
               </div>
 
+              {/* Talk button (safe on iOS; disabled if no STT) */}
               <button
-                onClick={() => { /* your STT button wiring here if needed */ }}
+                type="button"
+                className="caya-mic-btn"
+                aria-pressed={listening}
+                disabled={!enableVoice || (!supportsSTT && !serverSTT)}
+                onClick={() => {
+                  if (!enableVoice) return;
+                  if (supportsSTT) {
+                    toggleListening();
+                  }
+                }}
+                onMouseDown={(!supportsSTT && serverSTT) ? startRecordFallback : undefined}
+                onTouchStart={(!supportsSTT && serverSTT) ? startRecordFallback : undefined}
+                onMouseUp={(!supportsSTT && serverSTT) ? stopRecordFallback : undefined}
+                onTouchEnd={(!supportsSTT && serverSTT) ? stopRecordFallback : undefined}
                 title="Talk"
               >
-                {false ? "Stop 🎙️" : "Talk 🎙️"}
+                {supportsSTT ? (listening ? "Stop 🎙️" : "Talk 🎙️") : "REC 🎙️"}
               </button>
 
+              {/* Minimize — null-safe (no touching e.currentTarget after unmount) */}
               <button
                 type="button"
                 aria-label="Minimize"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
+                disabled={closing}
+                onClick={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  setClosing(true);
                   setOpen(false);
-                  e.currentTarget.disabled = true;
-                  setTimeout(() => {
-                    e.currentTarget.disabled = false;
-                  }, 500);
+                  setTimeout(() => setClosing(false), 500);
                 }}
                 style={{ marginLeft: 4, cursor: "pointer" }}
               >
@@ -734,7 +765,7 @@ export default function CayaChatWidget({
             ))}
             {loading && (
               <div className="caya-row">
-                <div className="caya-typing">
+                <div className="caya-typing" aria-live="polite" aria-label="Assistant typing">
                   <span className="dot" />
                   <span className="dot" />
                   <span className="dot" />
@@ -846,53 +877,15 @@ export default function CayaChatWidget({
   );
 
   /* =========================
-     Inner helpers used above
+     Inner helpers
      ========================= */
   function openOrAsk(url, prompt) {
     if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
+      try {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } catch {}
     } else {
-      setInput(prompt);
-      setTimeout(() => sendMessage({ preventDefault() {} }), 0);
+      sendMessage(undefined, prompt);
     }
   }
-  function onEmojiClick(emoji) {
-    if (!input.trim()) {
-      sendMessage(null, emoji);
-    } else {
-      insertAtCursor(emoji);
-    }
-    setShowEmoji(false);
-  }
-  function insertAtCursor(str) {
-    const el = inputRef.current;
-    if (!el) {
-      setInput((v) => (v || "") + str);
-      return;
-    }
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
-    const next = el.value.slice(0, start) + str + el.value.slice(end);
-    setInput(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.selectionStart = el.selectionEnd = start + str.length;
-    });
-  }
-
-  async function sendMessage(e, overrideText) {
-    // defined above (kept for readability by moving helpers); do nothing here
-  }
-}
-
-/* ---------------------------
-   Stub to simulate assistant (unused if you have a backend)
-   --------------------------- */
-async function fetchAssistant(text) {
-  return new Promise((resolve) =>
-    setTimeout(
-      () => resolve({ id: crypto.randomUUID(), text: "Here’s the assistant reply to: " + text }),
-      300
-    )
-  );
 }
