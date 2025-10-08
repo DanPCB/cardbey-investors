@@ -408,18 +408,20 @@ const [openContact, setOpenContact] = React.useState(false);
     
       {/* Chat */}
       <div className="iv-chat-scope">
-  <CayaChatWidget
-    lang={t.lang}
-    apiPath={import.meta.env.VITE_CHAT_ENDPOINT || "https://cardbey-backend1.onrender.com/api/chat"}
-    investorPackUrlEn={IR.packEn}
-    investorPackUrlVi={IR.packVi}
-    safeNoteUrlEn={IR.safeEn}
-    safeNoteUrlVi={IR.safeVi}
-    founderEmail={IR.founder}
-    calendlyUrl={IR.calendly}
-    accentColor="#7C3AED"
-  />
-</div>
+  {/* TEMP: chat disabled
+<CayaChatWidget
+  lang={t.lang}
+  apiPath={import.meta.env.VITE_CHAT_ENDPOINT || "https://cardbey-backend1.onrender.com/api/chat"}
+  investorPackUrlEn={IR.packEn}
+  investorPackUrlVi={IR.packVi}
+  safeNoteUrlEn={IR.safeEn}
+  safeNoteUrlVi={IR.safeVi}
+  founderEmail={IR.founder}
+  calendlyUrl={IR.calendly}
+  accentColor="#7C3AED"
+/>
+*/}
+
 
 
 
