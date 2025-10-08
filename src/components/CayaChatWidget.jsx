@@ -579,17 +579,26 @@ async function sendMessage(e, overrideText) {
                 {listening ? "Stop 🎙️" : "Talk 🎙️"}
               </button>
               <button
-                type="button"
-                aria-label="Minimize"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setOpen(false);
-                }}
-                style={{ marginLeft: 4 }}
-              >
-                ×
-              </button>
+  type="button"
+  aria-label="Minimize"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Close immediately and block further clicks
+    setOpen(false);
+
+    // Optionally delay re-enablement to avoid race with focus/blur events
+    e.currentTarget.disabled = true;
+    setTimeout(() => {
+      e.currentTarget.disabled = false;
+    }, 500);
+  }}
+  style={{ marginLeft: 4, cursor: "pointer" }}
+>
+  ×
+</button>
+
             </div>
           </div>
 

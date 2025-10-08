@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- favicons/meta... -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0b1220" />
     <meta property="og:title" content="Cardbey — Investor Relations" />
@@ -10,15 +10,44 @@
     <meta property="og:image" content="/og-cardbey.jpg" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Cardbey — Investor Relations</title>
+
+    <style>
+      html, body { margin:0; padding:0; overflow-x:hidden; }
+      img, svg, video, canvas { max-width:100%; height:auto; }
+      :root{
+        --pad: clamp(16px, 4vw, 32px);
+        --fs-h1: clamp(28px, 6vw, 48px);
+        --fs-body: clamp(14px, 3.8vw, 18px);
+        --vh: 1svh;
+      }
+      .min-h-screen-safe { min-height: calc(var(--vh, 1svh) * 100); }
+      @media (max-width: 767px){
+        .caya-fixed { position: static !important; max-width: 100% !important; }
+      }
+      .lang-chip{
+        appearance:none; border:0; border-radius:999px;
+        padding:8px 10px; font:600 12px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+        background:rgba(255,255,255,.9); box-shadow:0 1px 2px rgba(0,0,0,.08);
+      }
+    </style>
+
+    <script>
+      function setVH() {
+        var h = (window.visualViewport ? window.visualViewport.height : window.innerHeight) / 100;
+        document.documentElement.style.setProperty('--vh', h + 'vh');
+      }
+      setVH();
+      window.addEventListener('resize', setVH, { passive: true });
+      window.addEventListener('orientationchange', setVH, { passive: true });
+    </script>
   </head>
   <body>
-    <!-- MOVE YOUR LANGUAGE BUTTONS HERE -->
     <div style="position:fixed;top:8px;right:8px;z-index:1000;display:flex;gap:6px">
-      <button onclick="window.CayaChat?.setLang('vi')">VI</button>
-      <button onclick="window.CayaChat?.setLang('en')">EN</button>
+      <button class="lang-chip" onclick="window.CayaChat?.setLang('vi')" aria-label="Switch to Vietnamese">VI</button>
+      <button class="lang-chip" onclick="window.CayaChat?.setLang('en')" aria-label="Switch to English">EN</button>
     </div>
 
-    <div id="root"></div>
+    <div id="root" class="min-h-screen-safe"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
