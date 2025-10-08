@@ -12,7 +12,7 @@ import { speakOpenAI } from "@/lib/ttsClient";
 export default function CayaChatWidget({
   // kept for compat; UI is controlled by page lang / global setter instead
   lang: _deprecatedLangProp = "en",
- apiPath = "",
+  apiPath = "", // leave empty; env-based URLs below handle everything
   titleEn = "Caya — Investor Relations",
   titleVi = "Caya — Quan hệ Nhà đầu tư",
   placeholderEn = "Ask about the investor pack, SAFE, terms…",
@@ -34,7 +34,6 @@ export default function CayaChatWidget({
     const pageLang = (document.documentElement.getAttribute("lang") || "").toLowerCase();
     return pageLang.startsWith("vi") ? "vi" : "en";
   });
-  // Optional: watch <html lang> changes
   useEffect(() => {
     const el = document.documentElement;
     const read = () => {
@@ -50,57 +49,32 @@ export default function CayaChatWidget({
     };
   }, []);
 
-const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
-const API_KEY  = import.meta.env.VITE_CAYA_API_KEY || "";
-const url = (path) => `${API_BASE}${path}`;
-const streamUrl    = `${API_BASE}/caya/ask/stream`;
-const nonStreamUrl = url(`/caya/ask`);
-  // Sound preference (typing SFX + TTS)
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    try {
-      return (localStorage.getItem("caya:sound") ?? "on") === "on";
-    } catch { return true; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem("caya:sound", soundEnabled ? "on" : "off"); } catch {}
-  }, [soundEnabled]);
-  const toggleSound = useCallback(() => setSoundEnabled(v => !v), []);
-
-  // Keyboard shortcut: M to mute/unmute
-  useEffect(() => {
-    const onKey = e => { if ((e.key === "m" || e.key === "M") && (e.ctrlKey || e.metaKey || !e.shiftKey)) toggleSound(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [toggleSound]);
-
-
-
-  // Global imperative control: window.CayaChat.setLang('vi'|'en'|null)
-  const [forced, setForced] = useState(null); // 'vi' | 'en' | null
-  useEffect(() => {
-    window.CayaChat = window.CayaChat || {};
-    window.CayaChat.setLang = (code) => {
-      setForced(code === "vi" ? "vi" : code === "en" ? "en" : null);
-    };
-    return () => {
-      if (window.CayaChat?.setLang) delete window.CayaChat.setLang;
-    };
-  }, []);
-
-  const effectiveLang = forced ?? uiLang; // ← use this everywhere
-const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
   /* =========================
-     TTS configuration (auto-switch per language)
+     API base & helpers
      ========================= */
+  const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+  const API_KEY = import.meta.env.VITE_CAYA_API_KEY || "";
+  const build = (p) => `${API_BASE}${p}`;
+
+  // Candidate endpoints (we'll try them in this order)
+  const STREAM_PATHS = ["/api/caya/ask/stream", "/caya/ask/stream"];
+  const NONSTREAM_PATHS = ["/api/caya/ask", "/caya/ask"];
+
+  // TTS will use the same API base
+  const TTS_URL = build("/tts-openai");
+
+  /* =========================
+     Language, UI, sound, refs
+     ========================= */
+  const effectiveLang = useMemo(() => uiLang, [uiLang]);
+  const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
+
   const VOICE_BY_LANG = {
     en: import.meta.env.VITE_TTS_VOICE_EN || "alloy",
     vi: import.meta.env.VITE_TTS_VOICE_VI || "aria",
   };
   const TTS_MODEL = import.meta.env.VITE_TTS_MODEL || "tts-1";
 
-  /* =========================
-     UI dictionary driven by effectiveLang
-     ========================= */
   const UI = useMemo(
     () =>
       effectiveLang === "vi"
@@ -148,11 +122,8 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
     [effectiveLang, titleEn, titleVi, placeholderEn, placeholderVi]
   );
 
-  /* =========================
-     Sound + refs
-     ========================= */
   const { play } = useSound();
-  const { playTyping, playSend, playReceive, stopAll } = useSound({ enabled: soundEnabled });
+  const { playTyping, playSend, playReceive, stopAll } = useSound({ enabled: true });
   const lastChimedForAssistantId = useRef(null);
   const lastKeySoundAt = useRef(0);
   const listRef = useRef(null);
@@ -161,7 +132,44 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
   const emojiBtnRef = useRef(null);
   const mediaRecRef = useRef(null);
   const recChunksRef = useRef([]);
-   /* =========================
+
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return (localStorage.getItem("caya:sound") ?? "on") === "on";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("caya:sound", soundEnabled ? "on" : "off");
+    } catch {}
+  }, [soundEnabled]);
+  const toggleSound = useCallback(() => setSoundEnabled((v) => !v), []);
+
+  // Keyboard shortcut: M to mute/unmute
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.key === "m" || e.key === "M") && (e.ctrlKey || e.metaKey || !e.shiftKey)) toggleSound();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleSound]);
+
+  // Global imperative control: window.CayaChat.setLang('vi'|'en'|null)
+  const [forced, setForced] = useState(null); // 'vi' | 'en' | null
+  useEffect(() => {
+    window.CayaChat = window.CayaChat || {};
+    window.CayaChat.setLang = (code) => {
+      setForced(code === "vi" ? "vi" : code === "en" ? "en" : null);
+    };
+    return () => {
+      if (window.CayaChat?.setLang) delete window.CayaChat.setLang;
+    };
+  }, []);
+  const effectiveLangFinal = forced ?? effectiveLang;
+
+  /* =========================
      State
      ========================= */
   const [handsFree] = useState(true);
@@ -178,20 +186,11 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
   const KEY_INTERVAL = 70;
   const serverSTT = useMemo(() => STT_MODE === "server", []);
   const packUrl =
-    effectiveLang === "vi"
+    effectiveLangFinal === "vi"
       ? investorPackUrlVi || investorPackUrlEn
       : investorPackUrlEn || investorPackUrlVi;
   const safeUrl =
-    effectiveLang === "vi" ? safeNoteUrlVi || safeNoteUrlEn : safeNoteUrlEn || safeNoteUrlVi;
-
-    /* =========================
-     Voice (STT) — bound to effectiveLang
-     ========================= */
-  const { supportsSTT, listening, lastTranscript, startListening, stopListening } = useVoice({
-    lang: effectiveLang === "vi" ? "vi" : "en",
-    continuous: false,
-    interim: true,
-  });
+    effectiveLangFinal === "vi" ? safeNoteUrlVi || safeNoteUrlEn : safeNoteUrlEn || safeNoteUrlVi;
 
   /* =========================
      Effects
@@ -207,10 +206,9 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
   }, [msgs, play]);
 
   useEffect(() => {
-    if (!enableVoice || !lastTranscript) return;
-    sendMessage(undefined, lastTranscript);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastTranscript]);
+    if (!enableVoice) return;
+    // hook updates lastTranscript when speaking stops
+  }, [enableVoice]);
 
   // reset greeting if language flips (and only the greeting is present)
   useEffect(() => {
@@ -253,31 +251,6 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
     [play]
   );
 
-  function systemMsg() {
-    const language = effectiveLang === "vi" ? "Vietnamese" : "English";
-    const forbid =
-      effectiveLang === "vi"
-        ? "Respond ONLY in Vietnamese. Do not use English."
-        : "Respond ONLY in English. Do not use Vietnamese.";
-    return {
-      role: "system",
-      content:
-        `You are Caya, Cardbey's Investor Relations assistant. Always reply in ${language}. ${forbid} ` +
-        `Be concise and professional. Use short bullets when helpful.\n` +
-        `- Investor Pack: ${packUrl || "(not provided)"}\n` +
-        `- SAFE Note: ${safeUrl || "(not provided)"}\n` +
-        `- Book a call: ${calendlyUrl || "(not provided)"}; Founder email: ${founderEmail || "(not provided)"}\n` +
-        `Typical topics: traction, unit economics, pricing, use of funds, team, roadmap, competition.`,
-    };
-  }
-
-  function pickAssistantText(data) {
-    if (data?.choices?.[0]?.message?.content) return data.choices[0].message.content;
-    if (data?.content) return data.content;
-    if (data?.message) return data.message;
-    return typeof data === "string" ? data : JSON.stringify(data);
-  }
-
   function emojiSvgUrl(ch) {
     try {
       const code = twemoji.convert.toCodePoint(ch);
@@ -285,6 +258,15 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
     } catch {
       return null;
     }
+  }
+
+  function onEmojiClick(emoji) {
+    if (!input.trim()) {
+      sendMessage(null, emoji);
+    } else {
+      insertAtCursor(emoji);
+    }
+    setShowEmoji(false);
   }
 
   function insertAtCursor(str) {
@@ -303,196 +285,172 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
     });
   }
 
-  function onEmojiClick(emoji) {
-    if (!input.trim()) {
-      sendMessage(null, emoji);
-    } else {
-      insertAtCursor(emoji);
-    }
-    setShowEmoji(false);
-  }
-
-  function openOrAsk(url, prompt) {
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      setInput(prompt);
-      setTimeout(() => sendMessage({ preventDefault() {} }), 0);
-    }
-  }
-
   async function speakOut(text) {
-  if (!text || !enableVoice || !autoRead) return;
-  const voice = VOICE_BY_LANG[effectiveLang] || VOICE_BY_LANG.en;
-
-  try {
-    const r = await fetch(`${API_BASE}/tts-openai`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text,
-        voice,
-        model: TTS_MODEL, // e.g., "gpt-4o-mini-tts"
-      }),
-    });
-    if (!r.ok) throw new Error(`TTS HTTP ${r.status} ${r.statusText}`);
-
-    const blob = await r.blob();              // audio/*
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-
-    // autoplay might be blocked until first user gesture
-    audio.play().catch(() => console.warn("Autoplay blocked—will play after user interaction."));
-    audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
-  } catch (e) {
-    console.warn("[TTS] playback failed:", e);
+    if (!text || !enableVoice || !autoRead) return;
+    const voice = VOICE_BY_LANG[effectiveLangFinal] || VOICE_BY_LANG.en;
+    try {
+      const r = await fetch(TTS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice, model: TTS_MODEL }),
+      });
+      if (!r.ok) throw new Error(`TTS HTTP ${r.status} ${r.statusText}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play().catch(() => console.warn("Autoplay blocked—will play after user interaction."));
+      audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
+    } catch (e) {
+      console.warn("[TTS] playback failed:", e);
+    }
   }
-}
 
-
-async function sendMessage(e, overrideText) {
-  e?.preventDefault?.();
-  const text = (overrideText ?? input).trim();
-  if (!text || loading) return;
-
-  play("send");
-
-  const userMsg = { id: crypto.randomUUID(), role: "user", content: text };
-  const next = [...msgs, userMsg];
-
-  // live assistant bubble
-  const liveId = crypto.randomUUID();
-  setMsgs([...next, { id: liveId, role: "assistant", content: "" }]);
-  setInput("");
-  setLoading(true);
-
-  // recent history for context
-  const history = next.slice(-8).map(m => ({ role: m.role, content: m.content }));
-
-  // endpoints
-  
-    
-    const body = { q: text, message: text, audience: audienceForLang, k: 4, history };
-
-  // helper: append tokens to live bubble
-  const pushToken = (tok) => {
-    if (!tok) return;
-    setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: (x.content || "") + tok } : x)));
-  };
-
-  // local accumulator used for TTS
-  let streamedText = "";
-
-  try {
-    // --- 1) Try streaming first ---
-    const streamRes = await fetch(streamUrl, {
+  /* =========================
+     Networking
+     ========================= */
+  async function postJson(url, body) {
+    return fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-caya-key": API_KEY },
+      headers: {
+        "Content-Type": "application/json",
+        ...(API_KEY ? { "x-caya-key": API_KEY } : {}),
+      },
       body: JSON.stringify(body),
     });
+  }
 
-    if (streamRes.ok && (streamRes.headers.get("content-type") || "").includes("text/event-stream")) {
-      const reader = streamRes.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+  async function tryStream(paths, body, liveId) {
+    let lastErr;
+    for (const p of paths) {
+      const url = build(p);
+      try {
+        const res = await postJson(url, body);
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(`HTTP ${res.status} ${res.statusText}: ${t.slice(0, 200)}`);
+        }
+        const reader = res.body?.getReader?.();
+        if (!reader) throw new Error("No readable stream body");
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamedText = "";
 
-        const frames = buffer.split("\n\n");
-        buffer = frames.pop() ?? "";
+        const pushToken = (tok) => {
+          if (!tok) return;
+          setMsgs((m) =>
+            m.map((x) => (x.id === liveId ? { ...x, content: (x.content || "") + tok } : x))
+          );
+        };
 
-        for (const frame of frames) {
-          const lines = frame.split("\n");
-          if (lines.some(l => l.startsWith("event: done"))) { buffer = ""; break; }
-          const dataLine = lines.find(l => l.startsWith("data: "));
-          if (!dataLine) continue;
-
-          try {
-            const payload = JSON.parse(dataLine.slice(6));
-            const tok = payload.token ?? payload.delta ?? "";
-            if (tok) {
-              streamedText += tok;
-              pushToken(tok);
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split("\n\n");
+          buffer = frames.pop() ?? "";
+          for (const f of frames) {
+            if (f.startsWith("event: done")) {
+              buffer = "";
+              break;
             }
-          } catch {
-            // ignore malformed frame
+            const line = f.split("\n").find((l) => l.startsWith("data: "));
+            if (!line) continue;
+            try {
+              const payload = JSON.parse(line.slice(6));
+              const tok = payload.token ?? payload.delta ?? payload.text ?? "";
+              if (tok) {
+                streamedText += tok;
+                pushToken(tok);
+              }
+            } catch {}
           }
         }
+        if (streamedText.trim()) await speakOut(streamedText.trim());
+        return true; // success
+      } catch (e) {
+        lastErr = e;
       }
+    }
+    if (lastErr) throw lastErr;
+    throw new Error("All stream endpoints failed");
+  }
 
-      if (streamedText.trim()) await speakOut(streamedText.trim());
+  async function tryNonStream(paths, body, liveId) {
+    let lastErr;
+    for (const p of paths) {
+      const url = build(p);
+      try {
+        const res = await postJson(url, body);
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (ct.includes("application/json")) {
+          const data = await res.json();
+          const reply =
+            (data.reply ?? data.answer ?? data.content ?? data.message ?? "").toString().trim() ||
+            "(no reply)";
+          setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: reply } : x)));
+          if (reply && reply !== "(no reply)") await speakOut(reply);
+          return true;
+        } else {
+          const t = await res.text();
+          if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}: ${t.slice(0, 200)}`);
+          setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: t } : x)));
+          await speakOut(t);
+          return true;
+        }
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (lastErr) throw lastErr;
+    throw new Error("All non-stream endpoints failed");
+  }
+
+  async function sendMessage(e, overrideText) {
+    e?.preventDefault?.();
+    const text = (overrideText ?? input).trim();
+    if (!text || loading) return;
+
+    play("send");
+
+    const userMsg = { id: crypto.randomUUID(), role: "user", content: text };
+    const next = [...msgs, userMsg];
+
+    // live assistant bubble
+    const liveId = crypto.randomUUID();
+    setMsgs([...next, { id: liveId, role: "assistant", content: "" }]);
+    setInput("");
+    setLoading(true);
+
+    // recent history for context
+    const history = next.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+
+    const body = {
+      q: text,
+      message: text,
+      audience: audienceForLang,
+      k: 4,
+      history,
+    };
+
+    try {
+      // 1) stream first (tries /api/caya/ask/stream then /caya/ask/stream)
+      await tryStream(STREAM_PATHS, body, liveId);
+    } catch (streamErr) {
+      // 2) fallback to non-stream (tries /api/caya/ask then /caya/ask)
+      try {
+        await tryNonStream(NONSTREAM_PATHS, body, liveId);
+      } catch (nonStreamErr) {
+        const msg = `Request failed: ${
+          nonStreamErr?.message || streamErr?.message || nonStreamErr || streamErr
+        }`;
+        setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: msg } : x)));
+      }
+    } finally {
       setLoading(false);
       inputRef.current?.focus();
-      return; // streaming path done
-    }
-
-    // --- 2) Fallback to non-streaming route ---
-    // --- 2) Fallback to non-streaming route ---
-const res = await fetch(streamUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(API_KEY ? { "x-caya-key": API_KEY } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`HTTP ${res.status} ${res.statusText}\n${t.slice(0,300)}`);
-  }
-
-  // Some proxies strip content-type; treat as stream if there is a readable body
-  const reader = res.body?.getReader?.();
-  if (!reader) {
-    const t = await res.text(); // fallback: show body
-    throw new Error(`Expected stream; got:\n${t.slice(0,300)}`);
-  }
-
-  const decoder = new TextDecoder();
-  let buffer = "", streamedText = "";
-
-  const pushToken = (tok) => {
-    if (!tok) return;
-    setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: (x.content || "") + tok } : x)));
-  };
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-
-    for (const frame of frames) {
-      // handle "event: done" + "data: {...}"
-      if (frame.startsWith("event: done")) { buffer = ""; break; }
-      const line = frame.split("\n").find(l => l.startsWith("data: "));
-      if (!line) continue;
-      try {
-        const payload = JSON.parse(line.slice(6));
-        const tok = payload.token ?? payload.delta ?? payload.text ?? "";
-        if (tok) { streamedText += tok; pushToken(tok); }
-      } catch { /* ignore */ }
     }
   }
-
-  if (streamedText.trim()) await speakOut(streamedText.trim());
-  setLoading(false);
-  inputRef.current?.focus();
-  return;
-} catch (err) {
-  setMsgs(m => m.map(x => (x.id === liveId ? { ...x, content: `Request failed: ${err?.message || err}` } : x)));
-} finally {
-  setLoading(false);
-  inputRef.current?.focus();
-}
-}
-
 
   // Server-side STT fallback (only when supportsSTT=false and STT_MODE==='server')
   async function startRecordFallback() {
@@ -503,8 +461,7 @@ const res = await fetch(streamUrl, {
     rec.onstop = async () => {
       const blob = new Blob(recChunksRef.current, { type: rec.mimeType || "audio/webm" });
       try {
-        // Pass language hint to your server STT if supported
-        const text = await transcribeWithServer(blob, { language: effectiveLang });
+        const text = await transcribeWithServer(blob, { language: effectiveLangFinal });
         if (text?.trim()) sendMessage(undefined, text.trim());
       } catch (e) {
         setMsgs((m) => [
@@ -528,14 +485,10 @@ const res = await fetch(streamUrl, {
   /* =========================
      Styles
      ========================= */
-    /* =========================
-     Styles (responsive-only patch)
-     ========================= */
   const css = `
   :root { --caya-accent:${accentColor}; --caya-bg:#ffffff; --caya-fg:#0f172a; }
   @media (prefers-color-scheme: dark){ :root { --caya-bg:rgba(3,8,22,0.98); --caya-fg:#e6edf7; } }
 
-  /* === Floating button (unchanged look, responsive sizing) === */
   .caya-fab{
     position:fixed;
     right: clamp(12px, 4vw, 24px);
@@ -552,14 +505,11 @@ const res = await fetch(streamUrl, {
   .caya-fab-pill i:nth-child(2){ animation-delay:.12s } .caya-fab-pill i:nth-child(3){ animation-delay:.24s }
   @keyframes caya-bounce { 0%,80%,100%{ transform:translateY(0) } 40%{ transform:translateY(-4px) } }
 
-  /* === Chat panel: mobile-first safe sizing === */
   .caya-panel{
     position:fixed;
     right: clamp(8px, 4vw, 20px);
-    /* keep panel above FAB; account for iPhone home indicator */
     bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(76px, 18vw, 88px));
     width: min(92vw, 420px);
-    /* let height adapt, but never exceed viewport */
     max-height: calc(80vh - env(safe-area-inset-bottom, 0px));
     background:var(--caya-bg); color:var(--caya-fg);
     border-radius:16px; overflow:hidden;
@@ -569,7 +519,6 @@ const res = await fetch(streamUrl, {
     z-index:9999;
   }
 
-  /* Slightly larger on tablets / desktop */
   @media (min-width: 768px){
     .caya-panel{
       width: min(420px, 36vw);
@@ -578,35 +527,30 @@ const res = await fetch(streamUrl, {
     }
   }
 
-  /* Header */
-  /* In-header language toggle */
-.caya-lang{
-  display:inline-flex;
-  border:1px solid rgba(0,0,0,.12);
-  border-radius:9999px;
-  overflow:hidden;
-  background:rgba(255,255,255,.75);
-}
-@media (prefers-color-scheme: dark){
-  .caya-lang{ border-color:rgba(255,255,255,.16); background:rgba(12,16,28,.7); }
-}
-.caya-lang-btn{
-  height:28px;
-  padding:0 10px;
-  font-size:12px;
-  line-height:28px;
-  border:0;
-  background:transparent;
-  color:inherit;
-  cursor:pointer;
-}
-.caya-lang-btn.on{
-  background: var(--caya-accent);
-  color:#fff;
-}
-@media (max-width: 360px){
-  .caya-lang-btn{ height:26px; line-height:26px; padding:0 8px; font-size:11px; }
-}
+  .caya-lang{
+    display:inline-flex;
+    border:1px solid rgba(0,0,0,.12);
+    border-radius:9999px;
+    overflow:hidden;
+    background:rgba(255,255,255,.75);
+  }
+  @media (prefers-color-scheme: dark){
+    .caya-lang{ border-color:rgba(255,255,255,.16); background:rgba(12,16,28,.7); }
+  }
+  .caya-lang-btn{
+    height:28px;
+    padding:0 10px;
+    font-size:12px;
+    line-height:28px;
+    border:0;
+    background:transparent;
+    color:inherit;
+    cursor:pointer;
+  }
+  .caya-lang-btn.on{
+    background: var(--caya-accent);
+    color:#fff;
+  }
 
   .caya-head{
     min-height: 52px;
@@ -621,10 +565,8 @@ const res = await fetch(streamUrl, {
   }
   .caya-title{ font-weight:700; font-size:14px; }
 
-  /* hide panel when closed */
   .caya-panel[hidden]{ display:none !important; }
 
-  /* Quick chips row */
   .caya-quick{ display:flex; gap:8px; padding:8px 10px 0 10px; }
   .caya-chip{
     border:1px solid rgba(0,0,0,.1); background:#fff; color:#111827;
@@ -634,12 +576,11 @@ const res = await fetch(streamUrl, {
     .caya-chip{ background:#0b1220; color:#e6edf7; border-color:rgba(255,255,255,.12) }
   }
 
-  /* Scrollable messages area — this is the key to prevent overflow */
   .caya-list{
     flex:1;
     overflow:auto;
     padding:12px 12px 10px;
-    min-height: 140px; /* keeps some space even on tiny screens */
+    min-height: 140px;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -659,7 +600,6 @@ const res = await fetch(streamUrl, {
   .caya-emoji-chip{ border:1px solid rgba(0,0,0,.1); background:#fff; border-radius:9999px; padding:4px 8px; font-size:16px; cursor:pointer; flex:0 0 auto; }
   @media (prefers-color-scheme: dark){ .caya-emoji-chip{ background:#0b1220; border-color:rgba(255,255,255,.12) } }
 
-  /* Input bar — compact on mobile */
   .caya-input{
     display:flex; align-items:center; gap:8px;
     padding:8px 10px;
@@ -686,7 +626,6 @@ const res = await fetch(streamUrl, {
     .caya-emoji-btn, .caya-mic-btn{ background:#0b1220; border-color:rgba(255,255,255,.12); color:#e6edf7; }
   }
 
-  /* Emoji pop — keep within viewport on narrow screens */
   .caya-emoji-pop{
     position:absolute; bottom:56px; left:12px; z-index:50; background:#fff;
     border:1px solid rgba(0,0,0,.1); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.18);
@@ -696,7 +635,6 @@ const res = await fetch(streamUrl, {
   .caya-emoji-cell{ width:28px; height:28px; border-radius:8px; border:0; background:transparent; cursor:pointer; font-size:18px; line-height:1; }
   .caya-emoji-cell:hover{ background:rgba(0,0,0,.06) }
 
-  /* Ultra-small screens & landscape guards */
   @media (max-width: 360px){
     .caya-title{ font-size:13px; }
     .caya-chip{ padding:5px 8px; font-size:11px; }
@@ -707,7 +645,6 @@ const res = await fetch(streamUrl, {
   }
   `;
 
-
   /* =========================
      Render
      ========================= */
@@ -715,7 +652,6 @@ const res = await fetch(streamUrl, {
     <>
       <style>{css}</style>
 
-      {/* Panel */}
       {createPortal(
         <div
           className="caya-panel"
@@ -725,55 +661,52 @@ const res = await fetch(streamUrl, {
           data-open={open ? "true" : "false"}
         >
           <div className="caya-head" style={{ position: "relative" }}>
-  <div className="caya-title">{UI.title}</div>
+            <div className="caya-title">{UI.title}</div>
 
-  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-    {/* NEW: in-bubble language toggle */}
-    <div className="caya-lang" role="group" aria-label="Language">
-      <button
-        type="button"
-        className={`caya-lang-btn ${effectiveLang === "vi" ? "on" : ""}`}
-        onClick={() => document.documentElement.setAttribute("lang", "vi")}
-      >
-        VI
-      </button>
-      <button
-        type="button"
-        className={`caya-lang-btn ${effectiveLang === "en" ? "on" : ""}`}
-        onClick={() => document.documentElement.setAttribute("lang", "en")}
-      >
-        EN
-      </button>
-    </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div className="caya-lang" role="group" aria-label="Language">
+                <button
+                  type="button"
+                  className={`caya-lang-btn ${effectiveLangFinal === "vi" ? "on" : ""}`}
+                  onClick={() => document.documentElement.setAttribute("lang", "vi")}
+                >
+                  VI
+                </button>
+                <button
+                  type="button"
+                  className={`caya-lang-btn ${effectiveLangFinal === "en" ? "on" : ""}`}
+                  onClick={() => document.documentElement.setAttribute("lang", "en")}
+                >
+                  EN
+                </button>
+              </div>
 
-    <button
-      onClick={() => (listening ? stopListening() : startListening())}
-      disabled={!supportsSTT}
-      title={supportsSTT ? (listening ? UI.listening : UI.micHold) : UI.sttUnsupported}
-    >
-      {listening ? "Stop 🎙️" : "Talk 🎙️"}
-    </button>
+              <button
+                onClick={() => { /* your STT button wiring here if needed */ }}
+                title="Talk"
+              >
+                {false ? "Stop 🎙️" : "Talk 🎙️"}
+              </button>
 
-    {/* existing close button */}
-    <button
-      type="button"
-      aria-label="Minimize"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setOpen(false);
-        e.currentTarget.disabled = true;
-        setTimeout(() => { e.currentTarget.disabled = false; }, 500);
-      }}
-      style={{ marginLeft: 4, cursor: "pointer" }}
-    >
-      ×
-    </button>
-  
+              <button
+                type="button"
+                aria-label="Minimize"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setOpen(false);
+                  e.currentTarget.disabled = true;
+                  setTimeout(() => {
+                    e.currentTarget.disabled = false;
+                  }, 500);
+                }}
+                style={{ marginLeft: 4, cursor: "pointer" }}
+              >
+                ×
+              </button>
             </div>
           </div>
 
-          {/* Quick IR actions */}
           <div className="caya-quick">
             <button className="caya-chip" onClick={() => openOrAsk(packUrl, UI.prompts.pack)}>
               {UI.chips.pack}
@@ -793,7 +726,6 @@ const res = await fetch(streamUrl, {
             </button>
           </div>
 
-          {/* Messages */}
           <div ref={listRef} className="caya-list">
             {msgs.map((m) => (
               <div key={m.id} className={`caya-row ${m.role === "user" ? "me" : ""}`}>
@@ -811,7 +743,6 @@ const res = await fetch(streamUrl, {
             )}
           </div>
 
-          {/* Small favorites row */}
           <div className="caya-emoji-row" role="group" aria-label="Quick emojis">
             {["😀", "🙂", "🤝", "🚀", "💼", "📊", "🧾", "💡", "🤖"].map((e, i) => (
               <button
@@ -834,7 +765,6 @@ const res = await fetch(streamUrl, {
             ))}
           </div>
 
-          {/* Input line */}
           <form className="caya-input" onSubmit={sendMessage}>
             <button
               type="button"
@@ -845,29 +775,6 @@ const res = await fetch(streamUrl, {
             >
               😊
             </button>
-
-            {/* Tiny mic button (press & hold). If no browser STT, only works when server STT enabled. */}
-            {enableVoice && (
-              <button
-                type="button"
-                className="caya-mic-btn"
-                aria-label={listening ? UI.listening : UI.micHold}
-                aria-pressed={listening ? "true" : "false"}
-                onMouseDown={() =>
-                  supportsSTT ? startListening() : serverSTT ? startRecordFallback() : null
-                }
-                onMouseUp={() =>
-                  supportsSTT ? stopListening() : serverSTT ? stopRecordFallback() : null
-                }
-                onTouchStart={() => (supportsSTT ? startListening() : undefined)}
-                onTouchEnd={() => (supportsSTT ? stopListening() : undefined)}
-                title={
-                  supportsSTT ? undefined : serverSTT ? UI.sttServerHold : UI.sttUnsupportedShort
-                }
-              >
-                {listening || recOn ? "🎙️" : "🎤"}
-              </button>
-            )}
 
             <input
               ref={inputRef}
@@ -884,25 +791,7 @@ const res = await fetch(streamUrl, {
             {showEmoji && (
               <div ref={emojiPopRef} className="caya-emoji-pop" role="dialog" aria-label="Emoji picker">
                 {[
-                  "😀",
-                  "🙂",
-                  "🤝",
-                  "🚀",
-                  "💼",
-                  "📊",
-                  "🧾",
-                  "💡",
-                  "🤖",
-                  "📈",
-                  "🛠️",
-                  "✅",
-                  "❓",
-                  "📣",
-                  "🧠",
-                  "⏱️",
-                  "💰",
-                  "📄",
-                  "🔗",
+                  "😀","🙂","🤝","🚀","💼","📊","🧾","💡","🤖","📈","🛠️","✅","❓","📣","🧠","⏱️","💰","📄","🔗",
                 ].map((e, i) => (
                   <button
                     key={i}
@@ -929,14 +818,13 @@ const res = await fetch(streamUrl, {
         document.body
       )}
 
-      {/* Floating avatar — only toggles chat; never touches language */}
       {createPortal(
         <button
           className="caya-fab"
           type="button"
           onClick={(e) => {
             e.preventDefault();
-            e.stopPropagation(); // block any global click handlers
+            e.stopPropagation();
             setOpen((v) => !v);
           }}
           aria-label={open ? "Minimize chat" : "Open chat"}
@@ -956,6 +844,45 @@ const res = await fetch(streamUrl, {
       )}
     </>
   );
+
+  /* =========================
+     Inner helpers used above
+     ========================= */
+  function openOrAsk(url, prompt) {
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      setInput(prompt);
+      setTimeout(() => sendMessage({ preventDefault() {} }), 0);
+    }
+  }
+  function onEmojiClick(emoji) {
+    if (!input.trim()) {
+      sendMessage(null, emoji);
+    } else {
+      insertAtCursor(emoji);
+    }
+    setShowEmoji(false);
+  }
+  function insertAtCursor(str) {
+    const el = inputRef.current;
+    if (!el) {
+      setInput((v) => (v || "") + str);
+      return;
+    }
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const next = el.value.slice(0, start) + str + el.value.slice(end);
+    setInput(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + str.length;
+    });
+  }
+
+  async function sendMessage(e, overrideText) {
+    // defined above (kept for readability by moving helpers); do nothing here
+  }
 }
 
 /* ---------------------------
