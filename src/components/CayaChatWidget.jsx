@@ -12,7 +12,7 @@ import { speakOpenAI } from "@/lib/ttsClient";
 export default function CayaChatWidget({
   // kept for compat; UI is controlled by page lang / global setter instead
   lang: _deprecatedLangProp = "en",
- apiPath = "http://localhost:8787/api/caya",
+ apiPath = "",
   titleEn = "Caya — Investor Relations",
   titleVi = "Caya — Quan hệ Nhà đầu tư",
   placeholderEn = "Ask about the investor pack, SAFE, terms…",
@@ -50,10 +50,11 @@ export default function CayaChatWidget({
     };
   }, []);
 
-
-const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
-const API_KEY = import.meta.env.VITE_CAYA_KEY || "dev-secret";
-
+const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+const API_KEY  = import.meta.env.VITE_CAYA_API_KEY || "";
+const url = (path) => `${API_BASE}${path}`;
+const streamUrl    = url("/caya/ask/stream");
+const nonStreamUrl = url("/caya/ask");
   // Sound preference (typing SFX + TTS)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
@@ -183,11 +184,7 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
   const safeUrl =
     effectiveLang === "vi" ? safeNoteUrlVi || safeNoteUrlEn : safeNoteUrlEn || safeNoteUrlVi;
 
-  const base = (import.meta.env.VITE_CAYA_API_BASE || "").replace(/\/$/, "");
-  const envEndpoint = import.meta.env.VITE_CHAT_ENDPOINT || (base ? `${base}/api/caya` : "");
-  const endpoint = apiPath.startsWith("http") ? apiPath : envEndpoint || apiPath;
-
-  /* =========================
+    /* =========================
      Voice (STT) — bound to effectiveLang
      ========================= */
   const { supportsSTT, listening, lastTranscript, startListening, stopListening } = useVoice({
@@ -329,7 +326,7 @@ const audienceForLang = effectiveLang === "vi" ? "store-owner" : "investor";
   const voice = VOICE_BY_LANG[effectiveLang] || VOICE_BY_LANG.en;
 
   try {
-    const r = await fetch("/api/tts-openai", {
+    const r = await fetch(`${API_BASE}/tts-openai`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -373,12 +370,9 @@ async function sendMessage(e, overrideText) {
   const history = next.slice(-8).map(m => ({ role: m.role, content: m.content }));
 
   // endpoints
-  const base = (endpoint || "").replace(/\/+$/, "");
-  const askBase = base.endsWith("/ask") ? base : `${base}/ask`;
-  const streamUrl = `${askBase}/stream`;
-  const nonStreamUrl = askBase;
-
-  const body = { q: text, message: text, audience: audienceForLang, k: 4, history };
+  
+    
+    const body = { q: text, message: text, audience: audienceForLang, k: 4, history };
 
   // helper: append tokens to live bubble
   const pushToken = (tok) => {
@@ -436,21 +430,26 @@ async function sendMessage(e, overrideText) {
     }
 
     // --- 2) Fallback to non-streaming route ---
-    const res = await fetch(nonStreamUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-caya-key": API_KEY },
-      body: JSON.stringify(body),
-    });
+    // --- 2) Fallback to non-streaming route ---
+const res = await fetch(nonStreamUrl, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    ...(API_KEY ? { "x-caya-key": API_KEY } : {}),
+  },
+  body: JSON.stringify(body),
+});
 
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-    let data;
-    if (ct.includes("application/json")) {
-      data = await res.json();
-    } else {
-      const t = await res.text();
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}\n${t.slice(0, 300)}`);
-      data = { reply: t };
-    }
+const ct = (res.headers.get("content-type") || "").toLowerCase();
+let data;
+if (ct.includes("application/json")) {
+  data = await res.json();
+} else {
+  const t = await res.text();
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}\n${t.slice(0, 300)}`);
+  data = { reply: t };
+}
+
 
     const reply =
       (data?.reply ?? data?.answer ?? data?.content ?? data?.message ?? "").toString().trim() ||
