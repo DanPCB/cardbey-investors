@@ -10,6 +10,22 @@
     <meta property="og:image" content="/og-cardbey.jpg" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Cardbey — Investor Relations</title>
+    <!-- TEMP: hard-hide any Caya UI -->
+<style id="kill-caya-css">
+  .caya-panel, .caya-fab,
+  [class*="caya-panel"], [class*="caya-fab"],
+  caya-chat, caya-chat-widget, [data-caya], [data-widget="caya"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+  }
+  /* if inside iframes */
+  iframe[title*="Caya"], iframe[src*="caya"], iframe[data-caya] {
+    display: none !important;
+  }
+</style>
+
 
     <style>
       html, body { margin:0; padding:0; overflow-x:hidden; }
@@ -64,9 +80,76 @@
     new MutationObserver(kill).observe(document.body, { childList: true, subtree: true });
   })();
 </script>
+<script id="kill-caya-script">
+  (function killCaya() {
+    // Remove obvious script tags that might inject the chat
+    document.querySelectorAll('script[src*="caya"], script[data-caya], link[href*="caya"]').forEach(s => {
+      try { s.remove(); } catch {}
+    });
+
+    // Remove any already-present nodes
+    const zap = (root=document) => {
+      root.querySelectorAll('.caya-panel,.caya-fab,[data-caya],caya-chat,caya-chat-widget,[class*="caya-"]').forEach(n => {
+        try { n.remove(); } catch {}
+      });
+      // iframes too
+      root.querySelectorAll('iframe[title*="Caya"],iframe[src*="caya"],iframe[data-caya]').forEach(n => {
+        try { n.remove(); } catch {}
+      });
+    };
+    zap();
+
+    // Block future inserts anywhere in the DOM (even late async mounts)
+    const mo = new MutationObserver((recs) => {
+      for (const r of recs) {
+        r.addedNodes && r.addedNodes.forEach((n) => {
+          if (!(n instanceof Element)) return;
+          if (
+            n.matches?.('.caya-panel,.caya-fab,[data-caya],caya-chat,caya-chat-widget,[class*="caya-"]') ||
+            n.querySelector?.('.caya-panel,.caya-fab,[data-caya],caya-chat,caya-chat-widget,[class*="caya-"]')
+          ) {
+            try { n.remove(); } catch {}
+          }
+          // If an iframe appears, try to clean inside it (same-origin only)
+          if (n.tagName === 'IFRAME') {
+            try { n.contentWindow && zap(n.contentWindow.document); } catch {}
+          }
+        });
+      }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+
+    // Optional: intercept custom elements named like the widget
+    const origDefine = window.customElements?.define?.bind(window.customElements);
+    if (origDefine) {
+      window.customElements.define = function(name, ctor, opts) {
+        if (/caya|chatwidget/i.test(name)) {
+          // define a no-op element that renders nothing
+          try { return origDefine(name, class extends HTMLElement {}, opts); } catch {}
+          return;
+        }
+        return origDefine(name, ctor, opts);
+      };
+    }
+
+    // Optional: neutralize a global bootstrapper if present
+    Object.defineProperty(window, 'CayaChat', { value: {}, writable: false, configurable: true });
+
+    // Clean up on unload
+    window.addEventListener('beforeunload', () => mo.disconnect(), { once: true });
+  })();
+</script>
 
   <body>
         <div id="root" class="min-h-screen-safe"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+    // Also clear caches named by your app (optional but useful)
+    if (window.caches) caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+</script>
+
   </body>
 </html>
