@@ -8,24 +8,9 @@ import { transcribeWithServer } from "@/lib/voiceClient";
 import twemoji from "twemoji";
 import { useSound } from "@/lib/sound";
 
-export default function CayaChatWidget({
-  // kept for compat; UI is controlled by page lang / global setter instead
-  lang: _deprecatedLangProp = "en",
-  apiPath = "", // leave empty; env-based URLs below handle everything
-  titleEn = "Caya — Investor Relations",
-  titleVi = "Caya — Quan hệ Nhà đầu tư",
-  placeholderEn = "Ask about the investor pack, SAFE, terms…",
-  placeholderVi = "Hỏi về pack, SAFE, điều khoản…",
-  investorPackUrlEn,
-  investorPackUrlVi,
-  safeNoteUrlEn,
-  safeNoteUrlVi,
-  founderEmail = "",
-  calendlyUrl = "",
-  accentColor = "#7C3AED",
-  enableVoice = true,
-  autoRead = true,
-} = {}) {
+const CHAT_DISABLED = import.meta.env.VITE_ENABLE_CAYA !== "true";
+export default function CayaChatWidget({...props}) {
+  if (CHAT_DISABLED) return null; 
   /* =========================
      Page language + external control
      ========================= */
@@ -56,8 +41,8 @@ export default function CayaChatWidget({
   const build = (p) => `${API_BASE}${p}`;
 
   // Candidate endpoints (we'll try them in this order)
-  const STREAM_PATHS = ["/api/caya/ask/stream", "/caya/ask/stream"];
-  const NONSTREAM_PATHS = ["/api/caya/ask", "/caya/ask"];
+  const STREAM_PATHS = []; // disable streaming
+ const NONSTREAM_PATHS = ["/api/caya/ask"]; // our Grok-backed endpoint
 
   // TTS will use the same API base
   const TTS_URL = build("/tts-openai");
@@ -443,16 +428,14 @@ export default function CayaChatWidget({
     };
 
     try {
-      await tryStream(STREAM_PATHS, body, liveId);
+      await tryNonStream(NONSTREAM_PATHS, body, liveId);
     } catch (streamErr) {
       try {
         await tryNonStream(NONSTREAM_PATHS, body, liveId);
       } catch (nonStreamErr) {
-        const msg = `Request failed: ${
-          nonStreamErr?.message || streamErr?.message || nonStreamErr || streamErr
-        }`;
+        const msg = `Request failed: ${err?.message || err}`;
         setMsgs((m) => m.map((x) => (x.id === liveId ? { ...x, content: msg } : x)));
-      }
+        }
     } finally {
       setLoading(false);
       inputRef.current?.focus();
