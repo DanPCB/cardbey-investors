@@ -1,15 +1,15 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0b1220" />
-    <meta property="og:title" content="Cardbey — Investor Relations" />
+    <meta property="og:title" content="Cardbey â€” Investor Relations" />
     <meta property="og:description" content="Own the machine that builds & runs businesses 24/7." />
     <meta property="og:image" content="/og-cardbey.jpg" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <title>Cardbey — Investor Relations</title>
+    <title>Cardbey â€” Investor Relations</title>
     <!-- TEMP: hard-hide any Caya UI -->
 <style id="kill-caya-css">
   .caya-panel, .caya-fab,
@@ -56,7 +56,14 @@
       window.addEventListener('resize', setVH, { passive: true });
       window.addEventListener('orientationchange', setVH, { passive: true });
     </script>
-  </head>
+  <style id="kill-caya-css">
+  .caya-panel,.caya-fab,[class*="caya-panel"],[class*="caya-fab"],
+  caya-chat,caya-chat-widget,[data-caya],[data-widget="caya"],
+  iframe[title*="Caya"],iframe[src*="caya"],iframe[data-caya]{
+    display:none!important;visibility:hidden!important;pointer-events:none!important;opacity:0!important;
+  }
+</style>
+</head>
   <script>
   (function removeFloatingLangPills() {
     function isTopRight(el) {
@@ -151,5 +158,25 @@
   }
 </script>
 
-  </body>
+  <script id="kill-caya-script">
+(function killCaya(){
+  const zap=(root=document)=>{
+    root.querySelectorAll('.caya-panel,.caya-fab,[data-caya],caya-chat,caya-chat-widget,[class*="caya-"]').forEach(n=>{try{n.remove()}catch{}});
+    root.querySelectorAll('iframe[title*="Caya"],iframe[src*="caya"],iframe[data-caya]').forEach(n=>{try{n.remove()}catch{}});
+  };
+  zap();
+  const mo=new MutationObserver(recs=>{
+    for(const r of recs){r.addedNodes&&r.addedNodes.forEach(n=>{
+      if(!(n instanceof Element)) return;
+      if(n.matches?.('.caya-panel,.caya-fab,[data-caya],caya-chat,caya-chat-widget,[class*="caya-"]')||
+         n.querySelector?.('.caya-panel,.caya-fab,[data-caya],caya-chat,caya-chat-widget,[class*="caya-"]')){try{n.remove()}catch{}}
+      if(n.tagName==='IFRAME'){try{n.contentWindow && zap(n.contentWindow.document)}catch{}}
+    })}
+  });
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener('beforeunload',()=>mo.disconnect(),{once:true});
+})();
+</script>
+</body>
 </html>
+
