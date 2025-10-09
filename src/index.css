@@ -190,3 +190,13 @@ body{
   visibility: hidden !important;
   pointer-events: none !important;
 }
+#caya-chat, .caya-chat, [data-widget="caya-chat"],
+iframe[src*="caya"], iframe[src*="chat"] { display:none !important; }
+/* index.css */
+#caya-chat,
+.caya-chat,
+[data-widget="caya-chat"],
+iframe[src*="caya"],
+iframe[src*="chat"] {
+  display: none !important;
+}
