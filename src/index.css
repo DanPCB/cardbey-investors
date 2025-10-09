@@ -182,3 +182,11 @@ body{
 
 /* ---------- Utility ---------- */
 .min-h-screen-safe{ min-height: calc(var(--vh, 1svh) * 100); }
+.caya-mic-btn { display: none !important; }
+/* TEMP: disable Caya chat widget entirely */
+.caya-panel,
+.caya-fab {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
