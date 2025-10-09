@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * - open: whether the chat panel is visible (optional; affects which sound we play)
  */
 export default function useChime(messages, { open = true } = {}) {
-  const [muted, setMuted] = useState(() => localStorage.getItem("caya-muted")==="1");
+ 
   const lastAssistantId = useRef(null);
 
   // Preload players once
@@ -20,10 +20,7 @@ export default function useChime(messages, { open = true } = {}) {
     return { send, recv };
   }, []);
 
-  // Persist mute
-  useEffect(() => {
-    localStorage.setItem("caya-muted", muted ? "1" : "0");
-  }, [muted]);
+  
 
   // Call this when user clicks “Send”
   const chimeSend = () => {

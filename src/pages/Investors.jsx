@@ -3,7 +3,7 @@ import HeaderBar from "@/components/HeaderBar";
 import Hero from "@/components/Hero";
 import MeshBackground3D from "../components/MeshBackground3D";
 import "../styles/investors.css";
-import CayaChatWidget from "../components/CayaChatWidget";
+
 
 import AnimatedRevenueCard from "../components/AnimatedRevenueCard";
 import MarketOverviewInline from "../components/MarketOverviewInline";
@@ -406,23 +406,7 @@ const [openContact, setOpenContact] = React.useState(false);
 </div>
 
     
-      {/* Chat */}
-      <div className="iv-chat-scope">
-  <CayaChatWidget
-    lang={t.lang}
-    apiPath={import.meta.env.VITE_CHAT_ENDPOINT || "https://cardbey-backend1.onrender.com/api/chat"}
-    investorPackUrlEn={IR.packEn}
-    investorPackUrlVi={IR.packVi}
-    safeNoteUrlEn={IR.safeEn}
-    safeNoteUrlVi={IR.safeVi}
-    founderEmail={IR.founder}
-    calendlyUrl={IR.calendly}
-    accentColor="#7C3AED"
-  />
-</div>
-
-
-
+      
       {/* Skip link */}
       <a href="#iv-main" className="iv-skip">Skip to content</a>
 

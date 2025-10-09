@@ -25,7 +25,7 @@ const SoundCtx = createContext({
   toggleMuted: () => {},
 });
 
-const STORAGE_KEY = "caya:sound"; // "on" | "off"
+
 
 export function SoundProvider({ children }) {
   const [muted, setMuted] = useState(() => {
