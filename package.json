@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/content/investor/**/*.{ts,tsx}\" \"src/content/doctrine/**/*.{ts,tsx}\" \"src/components/investor-v2/**/*.{ts,tsx}\" \"src/components/investor-v3/**/*.{ts,tsx}\" \"src/pages/InvestorsV2.tsx\" \"src/pages/InvestorsV3.tsx\" \"src/lib/featureFlags.ts\" \"src/lib/analytics.ts\" \"src/App.jsx\""
+    "lint": "eslint \"src/content/investor/**/*.{ts,tsx}\" \"src/content/doctrine/**/*.{ts,tsx}\" \"src/components/investor-v2/**/*.{ts,tsx}\" \"src/components/investor-v3/**/*.{ts,tsx}\" \"src/pages/InvestorsV2.tsx\" \"src/pages/InvestorsV3.tsx\" \"src/lib/featureFlags.ts\" \"src/lib/analytics.ts\" \"src/lib/investorMail.ts\" \"src/App.jsx\""
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

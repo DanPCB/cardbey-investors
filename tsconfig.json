@@ -31,6 +31,8 @@
     "src/lib/featureFlags.ts",
     "src/lib/featureFlags.test.ts",
     "src/lib/analytics.ts",
+    "src/lib/investorMail.ts",
+    "src/lib/investorMail.test.ts",
     "src/test/**/*",
     "src/vite-env.d.ts",
     "src/components/ContactFounderModal.d.ts",
