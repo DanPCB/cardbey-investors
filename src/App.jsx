@@ -1,7 +1,6 @@
 // src/App.jsx
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import Investors from "./pages/Investors";
 import { SoundProvider } from "@/lib/sound";
 import {
   investorV3HomePath,
@@ -11,6 +10,7 @@ import {
   isInvestorV3Primary,
 } from "@/lib/featureFlags";
 
+const Investors = lazy(() => import("./pages/Investors"));
 const InvestorsV2 = lazy(() => import("./pages/InvestorsV2"));
 const InvestorsV3 = lazy(() => import("./pages/InvestorsV3"));
 
@@ -38,7 +38,7 @@ function rootElement({ v2Primary, v3Primary }) {
   if (v3Primary) {
     return <LazyInvestorPage page={InvestorsV3} label="Investor Platform V3" />;
   }
-  return <Investors />;
+  return <LazyInvestorPage page={Investors} label="Investor Relations" />;
 }
 
 export default function App() {
@@ -56,7 +56,7 @@ export default function App() {
           path="/investors-legacy"
           element={
             v2Primary || v3Primary ? (
-              <Investors />
+              <LazyInvestorPage page={Investors} label="Investor Relations" />
             ) : (
               <RedirectWithLocation to="/" />
             )

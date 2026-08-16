@@ -6,6 +6,8 @@ describe("investor SEO identity", () => {
   const html = readFileSync(resolve(__dirname, "../../index.html"), "utf8");
   const robots = readFileSync(resolve(__dirname, "../../public/robots.txt"), "utf8");
   const sitemap = readFileSync(resolve(__dirname, "../../public/sitemap.xml"), "utf8");
+  const manifest = readFileSync(resolve(__dirname, "../../public/site.webmanifest"), "utf8");
+  const redirects = readFileSync(resolve(__dirname, "../../public/_redirects"), "utf8");
 
   it("points canonical, Open Graph and sitemap at investors.cardbey.com", () => {
     expect(html).toMatch(/rel="canonical" href="https:\/\/investors\.cardbey\.com\/"/);
@@ -15,6 +17,9 @@ describe("investor SEO identity", () => {
     expect(html).toMatch(/ABN 50 685 406 697/);
     expect(robots).toMatch(/Sitemap: https:\/\/investors\.cardbey\.com\/sitemap\.xml/);
     expect(sitemap).toMatch(/<loc>https:\/\/investors\.cardbey\.com\/<\/loc>/);
+    expect(manifest).toMatch(/"id": "https:\/\/investors\.cardbey\.com\/"/);
+    expect(manifest).toMatch(/\/apple-touch-icon\.png/);
+    expect(redirects).toMatch(/\/\* +\S*\/index\.html +200/);
   });
 
   it("does not advertise the Render origin in public metadata", () => {
