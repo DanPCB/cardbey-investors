@@ -66,6 +66,43 @@ const schema = z.object({
   website: z.string().max(0).optional().or(z.literal("")),
 });
 
+function env(...keys) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value != null && String(value).trim() !== "") return String(value).trim();
+  }
+  return "";
+}
+
+function envFlag(raw, fallback = false) {
+  if (raw == null || raw === "") return fallback;
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+/** Accept Cardbey Core MAIL_* keys or the contact-api SMTP_* aliases. */
+function mailConfig() {
+  const host = env("MAIL_HOST", "SMTP_HOST");
+  const user = env("MAIL_USER", "SMTP_USER");
+  const pass = env("MAIL_PASS", "SMTP_PASS");
+  const portRaw = env("MAIL_PORT", "SMTP_PORT");
+  const port = Number(portRaw || 465);
+  const secureDefault = port === 465;
+  const fromEmail = env("MAIL_FROM_EMAIL", "SMTP_FROM", "MAIL_USER", "SMTP_USER");
+  const fromName = env("MAIL_FROM_NAME") || "Cardbey Investor";
+  return {
+    host,
+    user,
+    pass,
+    port,
+    secure: envFlag(env("MAIL_SECURE", "SMTP_SECURE"), secureDefault),
+    insecureTls: envFlag(env("MAIL_INSECURE_TLS"), false),
+    fromEmail,
+    fromName,
+    to: env("EMAIL_TO", "MAIL_TO") || fromEmail,
+  };
+}
+
 function logEvent(event, extra = {}) {
   console.info(
     JSON.stringify({
@@ -99,26 +136,27 @@ app.post("/api/contact", async (req, res) => {
     }
 
     const { name, email, message, requestType } = parsed.data;
+    const mail = mailConfig();
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    if (!mail.host || !mail.user || !mail.pass || !mail.fromEmail) {
       logEvent("contact_misconfigured");
       return res.status(503).json({ ok: false, error: "Unavailable" });
     }
 
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 465),
-      secure: String(process.env.SMTP_SECURE ?? "true") === "true",
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      host: mail.host,
+      port: mail.port,
+      secure: mail.secure,
+      auth: { user: mail.user, pass: mail.pass },
+      ...(mail.insecureTls ? { tls: { rejectUnauthorized: false } } : {}),
     });
 
-    const to = process.env.EMAIL_TO || process.env.SMTP_USER;
     const kindLabel =
       requestType === REQUEST_MATERIALS ? "Investor materials request" : "Investor enquiry";
 
     await transporter.sendMail({
-      from: `"Cardbey Site" <${process.env.SMTP_USER}>`,
-      to,
+      from: `"${mail.fromName}" <${mail.fromEmail}>`,
+      to: mail.to,
       replyTo: email,
       subject: `[${requestType}] ${kindLabel} from ${name}`,
       text: [
