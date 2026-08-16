@@ -1,5 +1,8 @@
 import React from "react";
 
+export const REQUEST_GENERAL = "GENERAL_INVESTOR_ENQUIRY";
+export const REQUEST_MATERIALS = "INVESTOR_MATERIALS";
+
 const DICT = {
   en: {
     contact: (name) => `Contact ${name}`,
@@ -9,6 +12,7 @@ const DICT = {
     deckSub: "PDF",
     requestChip: "Request investor materials",
     requestSub: "Provided following the request",
+    materialsPrefill: "I'd like to request Cardbey investor materials.",
     nameLabel: "Full name",
     namePh: "Your name",
     emailLabel: "Email",
@@ -18,9 +22,11 @@ const DICT = {
     close: "Close",
     send: "Send message",
     sending: "Sending...",
-    sentOk: "Sent. Thank you.",
-    sentErr: "Could not send the message",
-    sentErrHint: (addr) => `Please email ${addr} directly.`,
+    receivedTitle: "Message received.",
+    receivedBody:
+      "Thank you for contacting Cardbey. We'll respond to your enquiry directly.",
+    sentErrLead: "We couldn't send your message just now. Please try again, or contact ",
+    sentErrTrail: " directly.",
   },
   vi: {
     contact: (name) => `Liên hệ ${name}`,
@@ -30,6 +36,7 @@ const DICT = {
     deckSub: "PDF",
     requestChip: "Yêu cầu tài liệu nhà đầu tư",
     requestSub: "Được cung cấp sau khi có yêu cầu",
+    materialsPrefill: "Tôi muốn yêu cầu tài liệu nhà đầu tư Cardbey.",
     nameLabel: "Họ và tên",
     namePh: "Họ và tên",
     emailLabel: "Email",
@@ -39,9 +46,11 @@ const DICT = {
     close: "Đóng",
     send: "Gửi liên hệ",
     sending: "Đang gửi...",
-    sentOk: "Đã gửi. Cảm ơn bạn.",
-    sentErr: "Không thể gửi tin nhắn",
-    sentErrHint: (addr) => `Vui lòng gửi email trực tiếp tới ${addr}.`,
+    receivedTitle: "Đã nhận tin nhắn.",
+    receivedBody:
+      "Cảm ơn bạn đã liên hệ Cardbey. Chúng tôi sẽ phản hồi trực tiếp về nội dung trao đổi.",
+    sentErrLead: "Hiện tại chưa thể gửi tin nhắn. Vui lòng thử lại hoặc liên hệ trực tiếp qua ",
+    sentErrTrail: ".",
   },
 };
 
@@ -59,6 +68,12 @@ export function resolveContactApiPath(apiBase) {
   if (!base) return "/api/contact";
   if (base.endsWith("/api")) return `${base}/contact`;
   return `${base}/api/contact`;
+}
+
+function logContactIssue(details) {
+  if (import.meta.env.DEV) {
+    console.warn("[contact]", details);
+  }
 }
 
 export default function ContactFounderModal({
@@ -84,8 +99,26 @@ export default function ContactFounderModal({
   const messageRef = React.useRef(null);
   const lastFocusRef = React.useRef(null);
 
+  const [sending, setSending] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
+  const [error, setError] = React.useState(false);
+  const [name, setName] = React.useState("");
+  const [emailValue, setEmailValue] = React.useState("");
+  const [message, setMessage] = React.useState("");
+  const [requestType, setRequestType] = React.useState(REQUEST_GENERAL);
+  const inFlightRef = React.useRef(false);
+
   React.useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setSending(false);
+      setSent(false);
+      setError(false);
+      setName("");
+      setEmailValue("");
+      setMessage("");
+      setRequestType(REQUEST_GENERAL);
+      return undefined;
+    }
     lastFocusRef.current = document.activeElement;
     const onKey = (e) => {
       if (e.key === "Escape") {
@@ -117,32 +150,41 @@ export default function ContactFounderModal({
     };
   }, [open, onClose]);
 
-  const [sending, setSending] = React.useState(false);
-  const [sent, setSent] = React.useState(false);
-  const [error, setError] = React.useState("");
-
-  const failMessage = () =>
-    `${T.sentErr}. ${typeof T.sentErrHint === "function" ? T.sentErrHint(email) : ""}`.trim();
+  const requestMaterials = () => {
+    setRequestType(REQUEST_MATERIALS);
+    setMessage((current) => {
+      const trimmed = String(current || "").trim();
+      if (!trimmed) return T.materialsPrefill;
+      return current;
+    });
+    window.setTimeout(() => messageRef.current?.focus(), 0);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (sending) return;
-    setError("");
-    setSent(false);
+    if (sending || sent || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setError(false);
 
-    const fd = new FormData(e.currentTarget);
-    const values = Object.fromEntries(fd.entries());
-
-    if (values.website) {
-      setError(failMessage());
+    if (e.currentTarget.elements.website?.value) {
+      logContactIssue({ event: "honeypot" });
+      setError(true);
+      inFlightRef.current = false;
       return;
     }
+
+    const payload = {
+      name: name.trim(),
+      email: emailValue.trim(),
+      message: message.trim(),
+      requestType,
+    };
 
     try {
       setSending(true);
 
       if (onSubmit) {
-        await onSubmit(values);
+        await onSubmit(payload);
       } else {
         const controller = new AbortController();
         const timer = window.setTimeout(() => controller.abort(), 12000);
@@ -152,9 +194,8 @@ export default function ContactFounderModal({
             method: "POST",
             headers: { "Content-Type": "application/json", Accept: "application/json" },
             body: JSON.stringify({
-              name: values.name,
-              email: values.email,
-              message: values.message,
+              ...payload,
+              website: "",
             }),
             signal: controller.signal,
           });
@@ -163,25 +204,26 @@ export default function ContactFounderModal({
         }
         const j = await res.json().catch(() => null);
         if (!res.ok || !j || j.ok !== true) {
-          throw new Error(j?.error || failMessage());
+          logContactIssue({
+            event: "contact_rejected",
+            status: res.status,
+            endpoint,
+          });
+          setError(true);
+          return;
         }
       }
 
       setSent(true);
-      e.currentTarget.reset();
     } catch (err) {
-      const body = [
-        `Name: ${values.name || ""}`,
-        `Email: ${values.email || ""}`,
-        "",
-        String(values.message || ""),
-      ].join("\n");
-      const mailto = `mailto:${email}?subject=${encodeURIComponent(
-        "Cardbey investor inquiry"
-      )}&body=${encodeURIComponent(body)}`;
-      window.location.href = mailto;
-      setError(String(err?.message || failMessage()));
+      logContactIssue({
+        event: "contact_network",
+        endpoint,
+        name: err?.name,
+      });
+      setError(true);
     } finally {
+      inFlightRef.current = false;
       setSending(false);
     }
   };
@@ -211,98 +253,124 @@ export default function ContactFounderModal({
         </button>
 
         <h3 id="cfm-title" className="cfm-title">
-          {T.contact(founderName)}
+          {sent ? T.receivedTitle : T.contact(founderName)}
         </h3>
 
-        <div className="cfm-quick">
-          <a className="cfm-chip" href={`mailto:${email}`} rel="noreferrer">
-            📩 {T.emailChip}
-            <span className="cfm-sub">{email}</span>
-          </a>
-          {phone ? (
-            <a className="cfm-chip" href={`tel:${phone.replace(/\s+/g, "")}`}>
-              📞 {T.callChip}
-              <span className="cfm-sub">{phone}</span>
-            </a>
-          ) : null}
-          {deckReady ? (
-            <a className="cfm-chip" href={deckUrl} target="_blank" rel="noreferrer">
-              📑 {T.deckChip}
-              <span className="cfm-sub">{T.deckSub}</span>
-            </a>
-          ) : (
-            <button
-              type="button"
-              className="cfm-chip"
-              onClick={() => messageRef.current?.focus()}
-            >
-              📑 {T.requestChip}
-              <span className="cfm-sub">{T.requestSub}</span>
-            </button>
-          )}
-        </div>
-
-        <form className="cfm-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            name="website"
-            style={{ display: "none" }}
-            tabIndex={-1}
-            autoComplete="off"
-          />
-
-          <div className="cfm-row">
-            <label htmlFor="cfm-name">{T.nameLabel}</label>
-            <input
-              id="cfm-name"
-              name="name"
-              type="text"
-              placeholder={T.namePh}
-              ref={firstFieldRef}
-              required
-              minLength={2}
-              maxLength={120}
-              autoComplete="name"
-            />
+        {sent ? (
+          <div className="cfm-success">
+            <p className="cfm-success-body">{T.receivedBody}</p>
+            <div className="cfm-actions">
+              <button type="button" className="cfm-btn" onClick={onClose}>
+                {T.close}
+              </button>
+            </div>
           </div>
-          <div className="cfm-row">
-            <label htmlFor="cfm-email">{T.emailLabel}</label>
-            <input
-              id="cfm-email"
-              name="email"
-              type="email"
-              placeholder={T.emailPh}
-              required
-              maxLength={200}
-              autoComplete="email"
-            />
-          </div>
-          <div className="cfm-row">
-            <label htmlFor="cfm-message">{T.msgLabel}</label>
-            <textarea
-              id="cfm-message"
-              name="message"
-              rows={4}
-              placeholder={T.msgPh}
-              ref={messageRef}
-              required
-              minLength={2}
-              maxLength={5000}
-            />
-          </div>
+        ) : (
+          <>
+            <div className="cfm-quick">
+              <a className="cfm-chip" href={`mailto:${email}`} rel="noreferrer">
+                📩 {T.emailChip}
+                <span className="cfm-sub">{email}</span>
+              </a>
+              {phone ? (
+                <a className="cfm-chip" href={`tel:${phone.replace(/\s+/g, "")}`}>
+                  📞 {T.callChip}
+                  <span className="cfm-sub">{phone}</span>
+                </a>
+              ) : null}
+              {deckReady ? (
+                <a className="cfm-chip" href={deckUrl} target="_blank" rel="noreferrer">
+                  📑 {T.deckChip}
+                  <span className="cfm-sub">{T.deckSub}</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className={`cfm-chip${requestType === REQUEST_MATERIALS ? " is-active" : ""}`}
+                  aria-pressed={requestType === REQUEST_MATERIALS}
+                  onClick={requestMaterials}
+                >
+                  📑 {T.requestChip}
+                  <span className="cfm-sub">{T.requestSub}</span>
+                </button>
+              )}
+            </div>
 
-          {error ? <div className="cfm-alert cfm-alert--error">{error}</div> : null}
-          {sent ? <div className="cfm-alert cfm-alert--ok">{T.sentOk}</div> : null}
+            <form className="cfm-form" onSubmit={handleSubmit}>
+              <input
+                type="text"
+                name="website"
+                style={{ display: "none" }}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+              <input type="hidden" name="requestType" value={requestType} />
 
-          <div className="cfm-actions">
-            <button type="button" className="cfm-btn cfm-btn--ghost" onClick={onClose}>
-              {T.close}
-            </button>
-            <button type="submit" className="cfm-btn" disabled={sending}>
-              {sending ? T.sending : T.send}
-            </button>
-          </div>
-        </form>
+              <div className="cfm-row">
+                <label htmlFor="cfm-name">{T.nameLabel}</label>
+                <input
+                  id="cfm-name"
+                  name="name"
+                  type="text"
+                  placeholder={T.namePh}
+                  ref={firstFieldRef}
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  autoComplete="name"
+                  value={name}
+                  onChange={(ev) => setName(ev.target.value)}
+                />
+              </div>
+              <div className="cfm-row">
+                <label htmlFor="cfm-email">{T.emailLabel}</label>
+                <input
+                  id="cfm-email"
+                  name="email"
+                  type="email"
+                  placeholder={T.emailPh}
+                  required
+                  maxLength={200}
+                  autoComplete="email"
+                  value={emailValue}
+                  onChange={(ev) => setEmailValue(ev.target.value)}
+                />
+              </div>
+              <div className="cfm-row">
+                <label htmlFor="cfm-message">{T.msgLabel}</label>
+                <textarea
+                  id="cfm-message"
+                  name="message"
+                  rows={4}
+                  placeholder={T.msgPh}
+                  ref={messageRef}
+                  required
+                  minLength={2}
+                  maxLength={5000}
+                  value={message}
+                  onChange={(ev) => setMessage(ev.target.value)}
+                />
+              </div>
+
+              {error ? (
+                <div className="cfm-alert cfm-alert--error" role="alert">
+                  {T.sentErrLead}
+                  <a href={`mailto:${email}`}>{email}</a>
+                  {T.sentErrTrail}
+                </div>
+              ) : null}
+
+              <div className="cfm-actions">
+                <button type="button" className="cfm-btn cfm-btn--ghost" onClick={onClose}>
+                  {T.close}
+                </button>
+                <button type="submit" className="cfm-btn" disabled={sending}>
+                  {sending ? T.sending : T.send}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
