@@ -61,6 +61,7 @@ describe("ContactFounderModal", () => {
       name: "Ada",
       email: "ada@example.com",
       requestType: "GENERAL_INVESTOR_ENQUIRY",
+      lang: "en",
     });
     expect(await screen.findByText(/Message received/i)).toBeInTheDocument();
     expect(

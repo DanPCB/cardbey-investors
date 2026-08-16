@@ -17,6 +17,7 @@ type Props = {
     email: string;
     message: string;
     requestType: "GENERAL_INVESTOR_ENQUIRY" | "INVESTOR_MATERIALS";
+    lang?: "en" | "vi";
   }) => void | Promise<void>;
   text?: Record<string, unknown>;
   children?: ReactNode;

@@ -178,6 +178,7 @@ export default function ContactFounderModal({
       email: emailValue.trim(),
       message: message.trim(),
       requestType,
+      lang: lang === "vi" ? "vi" : "en",
     };
 
     try {
