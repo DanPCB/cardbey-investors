@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowJs": true,
+    "checkJs": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["vitest/globals", "vite/client"]
+  },
+  "include": [
+    "src/content/investor/**/*",
+    "src/components/investor-v2/**/*",
+    "src/pages/InvestorsV2.tsx",
+    "src/pages/InvestorsV2.smoke.test.tsx",
+    "src/lib/featureFlags.ts",
+    "src/lib/featureFlags.test.ts",
+    "src/lib/analytics.ts",
+    "src/test/**/*",
+    "src/vite-env.d.ts",
+    "src/components/ContactFounderModal.d.ts",
+    "src/content/investor/founder-input/**/*",
+    "src/pages/InvestorsV2.review.test.tsx"
+  ],
+  "exclude": ["node_modules", "dist", "contact-api", "public", "caya-knowledge"]
+}

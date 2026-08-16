@@ -1,0 +1,70 @@
+/* Cardbey Investor Platform V2 — design tokens */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap");
+
+:root {
+  --iv2-bg-primary: #0b1220;
+  --iv2-bg-secondary: #101a2e;
+  --iv2-surface-subtle: rgba(255, 255, 255, 0.035);
+  --iv2-surface-elevated: rgba(255, 255, 255, 0.06);
+  --iv2-text-primary: #eef3fb;
+  --iv2-text-secondary: #c3d0e5;
+  --iv2-text-muted: #8fa0bb;
+  --iv2-border-subtle: rgba(255, 255, 255, 0.08);
+  --iv2-border-emphasis: rgba(167, 243, 208, 0.35);
+  --iv2-accent-green: #34d399;
+  --iv2-accent-violet: #8b5cf6;
+  --iv2-accent-cyan: #22d3ee;
+  --iv2-state-live: #34d399;
+  --iv2-state-pilot: #22d3ee;
+  --iv2-state-development: #a78bfa;
+  --iv2-state-planned: #94a3b8;
+  --iv2-state-warning: #fbbf24;
+  --iv2-state-confidential: #f87171;
+
+  --iv2-font-display: "Syne", "Segoe UI", sans-serif;
+  --iv2-font-body: "Manrope", "Segoe UI", sans-serif;
+
+  --iv2-fs-xs: 0.75rem;
+  --iv2-fs-sm: 0.875rem;
+  --iv2-fs-md: 1rem;
+  --iv2-fs-lg: 1.125rem;
+  --iv2-fs-xl: 1.35rem;
+  --iv2-fs-2xl: clamp(1.75rem, 3vw, 2.35rem);
+  --iv2-fs-3xl: clamp(2.25rem, 5vw, 3.4rem);
+
+  --iv2-space-1: 0.25rem;
+  --iv2-space-2: 0.5rem;
+  --iv2-space-3: 0.75rem;
+  --iv2-space-4: 1rem;
+  --iv2-space-5: 1.5rem;
+  --iv2-space-6: 2rem;
+  --iv2-space-7: 3rem;
+  --iv2-space-8: 4.5rem;
+  --iv2-space-9: 6.5rem;
+
+  --iv2-container: 1120px;
+  --iv2-container-wide: 1240px;
+  --iv2-section-y: clamp(3.5rem, 8vw, 6.5rem);
+
+  --iv2-radius-sm: 8px;
+  --iv2-radius-md: 14px;
+  --iv2-radius-lg: 22px;
+
+  --iv2-shadow-1: 0 8px 30px rgba(0, 0, 0, 0.25);
+  --iv2-duration: 220ms;
+  --iv2-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --iv2-duration: 1ms;
+  }
+
+  .iv2-shell *,
+  .iv2-shell *::before,
+  .iv2-shell *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

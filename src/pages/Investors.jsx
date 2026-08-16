@@ -723,7 +723,7 @@ function useI18n() {
         ["Tech Lead", "AI/ML, platform & devices."],
         ["Ops/Market", "Rollout AU & SEA, logistics."],
       ],
-      footer: `© ${new Date().getFullYear()} Cardbey — SIGNSCATER PTY LTD • ABN/ACN 685 406 697 • Victoria, Australia`,
+      footer: `© ${new Date().getFullYear()} Cardbey — SIGNSCATER PTY LTD • ABN 50 685 406 697 • ACN 685 406 697 • Victoria, Australia`,
       langLabel: "EN",
     },
     vi: {
@@ -785,7 +785,7 @@ function useI18n() {
         ["Tech Lead", "AI/ML, nền tảng & thiết bị."],
         ["Ops/Market", "Triển khai AU & SEA, logistics."],
       ],
-      footer: `© ${new Date().getFullYear()} Cardbey — SIGNSCATER PTY LTD • ABN/ACN 685 406 697 • Victoria, Australia`,
+      footer: `© ${new Date().getFullYear()} Cardbey — SIGNSCATER PTY LTD • ABN 50 685 406 697 • ACN 685 406 697 • Victoria, Australia`,
       langLabel: "VI",
     },
   };

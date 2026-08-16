@@ -3,13 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="canonical" href="https://investors.cardbey.com/" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0b1220" />
-    <meta property="og:title" content="Cardbey â€” Investor Relations" />
-    <meta property="og:description" content="Own the machine that builds & runs businesses 24/7." />
-    <meta property="og:image" content="/og-cardbey.jpg" />
+    <meta
+      name="description"
+      content="Cardbey investor information. Proposed seed terms for a 12-month Australia and Vietnam evidence program."
+    />
+    <meta property="og:title" content="Cardbey — Investor" />
+    <meta property="og:description" content="Cardbey investor information. Proposed seed terms for a 12-month Australia and Vietnam evidence program." />
+    <meta property="og:url" content="https://investors.cardbey.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://investors.cardbey.com/cardbey-logo-512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cardbey — Investor" />
+    <meta name="twitter:description" content="Cardbey investor information. Proposed seed terms for a 12-month Australia and Vietnam evidence program." />
+    <meta name="twitter:image" content="https://investors.cardbey.com/cardbey-logo-512.png" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <title>Cardbey â€” Investor Relations</title>
+    <title>Cardbey — Investor</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Cardbey Investor",
+        "url": "https://investors.cardbey.com/",
+        "publisher": {
+          "@type": "Organization",
+          "name": "SIGNSCATER PTY LTD",
+          "identifier": [
+            "ABN 50 685 406 697",
+            "ACN 685 406 697"
+          ]
+        }
+      }
+    </script>
     <!-- TEMP: hard-hide any Caya UI -->
 <style id="kill-caya-css">
   .caya-panel, .caya-fab,
@@ -74,10 +101,10 @@
     }
 
     function kill() {
-      document.querySelectorAll('button, a, span, div').forEach((el) => {
-        const txt = (el.textContent || '').trim();
-        if ((txt === 'VI' || txt === 'EN') && isTopRight(el)) {
-          el.remove(); // or: el.style.display = 'none';
+      document.querySelectorAll(".lang-chip").forEach((el) => {
+        const txt = (el.textContent || "").trim();
+        if ((txt === "VI" || txt === "EN") && isTopRight(el)) {
+          el.remove();
         }
       });
     }
